@@ -438,7 +438,19 @@ Index: lib/Parse/ParseDecl.cpp
 ===================================================================
 --- lib/Parse/ParseDecl.cpp	(revision 123041)
 +++ lib/Parse/ParseDecl.cpp	(working copy)
-@@ -491,18 +491,22 @@
+@@ -389,8 +389,9 @@
+ 
+   // C99 6.7.2.3p6: Handle "struct-or-union identifier;", "enum { X };"
+   // declaration-specifiers init-declarator-list[opt] ';'
+-  if (Tok.is(tok::semi)) {
+-    if (RequireSemi) ConsumeToken();
++  if (Tok.is(tok::semi) || 
++      (getLang().Eero && Tok.isAtStartOfLine() && !InSystemHeader(Tok.getLocation()))) {
++    if (Tok.is(tok::semi) && RequireSemi) ConsumeToken();
+     Decl *TheDecl = Actions.ParsedFreeStandingDeclSpec(getCurScope(), AS_none,
+                                                            DS);
+     DS.complete(TheDecl);
+@@ -491,18 +492,22 @@
    if (DeclEnd)
      *DeclEnd = Tok.getLocation();
  
@@ -472,7 +484,7 @@ Index: lib/Parse/ParseDecl.cpp
      }
    }
  
-@@ -877,13 +881,24 @@
+@@ -877,13 +882,24 @@
                                          AccessSpecifier AS,
                                          DeclSpecContext DSContext) {  
    DS.SetRangeStart(Tok.getLocation());
@@ -497,7 +509,7 @@ Index: lib/Parse/ParseDecl.cpp
      switch (Tok.getKind()) {
      default:
      DoneWithDeclSpec:
-@@ -1908,15 +1923,17 @@
+@@ -1908,15 +1924,17 @@
  
      if (Tok.is(tok::semi)) {
        ConsumeToken();
@@ -524,7 +536,18 @@ Index: lib/Parse/ParseDecl.cpp
      }
    }
  
-@@ -2306,6 +2323,11 @@
+@@ -1933,6 +1951,10 @@
+                       AttrList.get());
+   StructScope.Exit();
+   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, RBraceLoc);
++
++  if (getLang().Eero && Tok.isAtStartOfLine() && !InSystemHeader(RBraceLoc)) {
++    InsertToken(tok::semi);
++  }
+ }
+ 
+ 
+@@ -2306,6 +2328,11 @@
        return false;
      if (TryAltiVecVectorToken())
        return true;
