@@ -48,6 +48,87 @@ Index: include/clang/Basic/DiagnosticParseKinds.td
  /// C++ parser diagnostics
  def err_expected_unqualified_id : Error<
    "expected %select{identifier|unqualified-id}0">;
+Index: include/clang/Sema/Scope.h
+===================================================================
+--- include/clang/Sema/Scope.h	(revision 123041)
++++ include/clang/Sema/Scope.h	(working copy)
+@@ -15,6 +15,7 @@
+ #define LLVM_CLANG_SEMA_SCOPE_H
+ 
+ #include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
+ 
+ namespace clang {
+ 
+@@ -122,6 +123,10 @@
+   typedef llvm::SmallPtrSet<Decl *, 32> DeclSetTy;
+   DeclSetTy DeclsInScope;
+ 
++  /// List of (ordered) Eero namespace-like prefixes
++  typedef llvm::SmallVector<const char *, 32> PrefixListTy;
++  PrefixListTy PrefixesInScope;
++
+   /// Entity - The entity with which this scope is associated. For
+   /// example, the entity of a class scope is the class itself, the
+   /// entity of a function scope is a function, etc. This field is
+@@ -133,7 +138,7 @@
+ 
+   /// \brief The number of errors at the start of the given scope.
+   unsigned NumErrorsAtStart;
+-  
++
+ public:
+   Scope(Scope *Parent, unsigned ScopeFlags) {
+     Init(Parent, ScopeFlags);
+@@ -211,6 +216,15 @@
+     return DeclsInScope.count(D) != 0;
+   }
+ 
++  typedef PrefixListTy::const_iterator prefix_iterator;
++  prefix_iterator prefix_begin() { return PrefixesInScope.begin(); }
++  prefix_iterator prefix_end()   { return PrefixesInScope.end(); }
++  bool prefix_empty()            const { return PrefixesInScope.empty(); }
++
++  void AddPrefix(const char *P) {
++    PrefixesInScope.push_back(P);
++  }
++
+   void* getEntity() const { return Entity; }
+   void setEntity(void *E) { Entity = E; }
+ 
+@@ -316,6 +330,7 @@
+     if (Flags & BlockScope)         BlockParent = this;
+     if (Flags & TemplateParamScope) TemplateParamParent = this;
+     DeclsInScope.clear();
++    PrefixesInScope.clear();
+     UsingDirectives.clear();
+     Entity = 0;
+     NumErrorsAtStart = 0;
+Index: include/clang/Sema/Sema.h
+===================================================================
+--- include/clang/Sema/Sema.h	(revision 123041)
++++ include/clang/Sema/Sema.h	(working copy)
+@@ -1233,7 +1233,7 @@
+                               RedeclarationKind Redecl
+                                 = NotForRedeclaration);
+   bool LookupName(LookupResult &R, Scope *S,
+-                  bool AllowBuiltinCreation = false);
++                  bool AllowBuiltinCreation = false, bool doPrefixLookup = false);
+   bool LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
+                            bool InUnqualifiedLookup = false);
+   bool LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
+@@ -3779,6 +3779,11 @@
+                                   SourceLocation RBracLoc,
+                                   MultiExprArg Args);
+ 
++  /// Eero support for namespace-like prefixes
++  void ActOnPrefixTypedef(Scope *CurScope,
++                          SourceLocation TypedefLoc,
++                          SourceLocation PrefixNameLoc,
++                          IdentifierInfo *PrefixName);
+ 
+   enum PragmaOptionsAlignKind {
+     POAK_Native,  // #pragma options align=native
 Index: include/clang/Driver/Types.def
 ===================================================================
 --- include/clang/Driver/Types.def	(revision 123041)
@@ -117,6 +198,17 @@ Index: include/clang/Parse/Parser.h
  
    ExprResult ParseExpressionWithLeadingAt(SourceLocation AtLoc);
  
+@@ -1114,6 +1140,10 @@
+   bool ParseObjCXXMessageReceiver(bool &IsExpr, void *&TypeOrExpr);
+ 
+   //===--------------------------------------------------------------------===//
++  // Eero-specific Expressions
++  ExprResult ParsePrefixTypedef(SourceLocation TypedefLoc);
++
++  //===--------------------------------------------------------------------===//
+   // C99 6.8: Statements and Blocks.
+ 
+   StmtResult ParseStatement() {
 Index: lib/Frontend/FrontendActions.cpp
 ===================================================================
 --- lib/Frontend/FrontendActions.cpp	(revision 123041)
@@ -246,10 +338,36 @@ Index: lib/Sema/SemaDeclObjC.cpp
    } else if (T->isObjCQualifiedIdType()) {
      Invalid = true;
      Diag(NameLoc, diag::err_illegal_qualifiers_on_catch_parm);
+@@ -1807,3 +1823,16 @@
+   }
+   return;
+ }
++
++/// Eero support for namespace-like prefixes
++
++void Sema::ActOnPrefixTypedef(Scope *CurScope,
++                              SourceLocation TypedefLoc,
++                              SourceLocation PrefixNameLoc,
++                              IdentifierInfo *PrefixName) {
++
++    // TODO: add error checking for duplicate prefixes in same scope?
++    
++    CurScope->AddPrefix(PrefixName->getNameStart());
++}
++
 Index: lib/Sema/SemaDecl.cpp
 ===================================================================
 --- lib/Sema/SemaDecl.cpp	(revision 123041)
 +++ lib/Sema/SemaDecl.cpp	(working copy)
+@@ -123,7 +123,7 @@
+     }
+   } else {
+     // Perform unqualified name lookup.
+-    LookupName(Result, S);
++    LookupName(Result, S,false,true);
+   }
+   
+   NamedDecl *IIDecl = 0;
 @@ -2963,8 +2963,14 @@
    QualType T = NewVD->getType();
  
@@ -300,24 +418,74 @@ Index: lib/Sema/SemaLookup.cpp
  #include "llvm/ADT/DenseSet.h"
  #include "llvm/ADT/STLExtras.h"
  #include "llvm/ADT/SmallPtrSet.h"
-@@ -1113,6 +1114,17 @@
+@@ -1033,11 +1034,12 @@
+ /// @returns The result of name lookup, which includes zero or more
+ /// declarations and possibly additional information used to diagnose
+ /// ambiguities.
+-bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation) {
++bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation, bool doPrefixLookup) {
+   DeclarationName Name = R.getLookupName();
+   if (!Name) return false;
+ 
+   LookupNameKind NameKind = R.getLookupKind();
++  Scope* curScope = S;
+ 
+   if (!getLangOptions().CPlusPlus) {
+     // Unqualified name lookup in C/Objective-C is purely lexical, so
+@@ -1113,6 +1115,31 @@
    if (AllowBuiltinCreation)
      return LookupBuiltin(*this, R);
  
-+  if (getLangOptions().Eero) {
++  if (getLangOptions().Eero && doPrefixLookup) { // use Eero prefix typedefs
++
 +    const std::string& name(Name.getAsString());
-+    if (name.substr(0,2) != "NS" ) {
-+      IdentifierInfo& IIWithPrefix = PP.getIdentifierTable().getOwn("NS" + name);
-+      R.setLookupName(&IIWithPrefix);
-+      bool found = LookupName(R, S);
-+      if (!found) R.setLookupName(Name); // restore orig name for diagnostics
-+      return found;
++    Scope* prefixScope = curScope;
++    bool found = false;
++
++    // First check for the almighty "NS" prefix
++    R.setLookupName(&(PP.getIdentifierTable().getOwn("NS" + name)));
++    found = LookupName(R, curScope);
++    
++    while (!found && prefixScope) { // now check for any explicit prefix typedefs
++      Scope::prefix_iterator it;
++      for ( Scope::prefix_iterator it = prefixScope->prefix_begin(); 
++            !found && it < prefixScope->prefix_end(); 
++            it++ ) {
++        R.setLookupName(&(PP.getIdentifierTable().getOwn(*it + name)));
++        found = LookupName(R, curScope);
++      }
++      prefixScope = prefixScope->getParent(); // keep looking in enclosing scopes
 +    }
++
++    if (!found) R.setLookupName(Name); // restore orig name for diagnostics
++    return found;
 +  }
 +
    return false;
  }
  
+@@ -2027,7 +2054,7 @@
+                                   LookupNameKind NameKind,
+                                   RedeclarationKind Redecl) {
+   LookupResult R(*this, Name, Loc, NameKind, Redecl);
+-  LookupName(R, S);
++  LookupName(R, S,false,true);
+   return R.getAsSingle<NamedDecl>();
+ }
+ 
+Index: lib/Sema/SemaExprObjC.cpp
+===================================================================
+--- lib/Sema/SemaExprObjC.cpp	(revision 123041)
++++ lib/Sema/SemaExprObjC.cpp	(working copy)
+@@ -541,7 +541,7 @@
+     return ObjCSuperMessage;
+   
+   LookupResult Result(*this, Name, NameLoc, LookupOrdinaryName);
+-  LookupName(Result, S);
++  LookupName(Result, S,false,true);
+   
+   switch (Result.getResultKind()) {
+   case LookupResult::NotFound:
 Index: lib/Sema/SemaExpr.cpp
 ===================================================================
 --- lib/Sema/SemaExpr.cpp	(revision 123041)
@@ -572,6 +740,17 @@ Index: lib/Parse/ParseDecl.cpp
      // Fall through.
    case tok::kw_typename: // typename T::type
      // Annotate typenames and C++ scope specifiers.  If we get one, just
+@@ -2329,6 +2356,10 @@
+ 
+     // storage-class-specifier
+   case tok::kw_typedef:
++    if (getLang().Eero && 
++        GetLookAheadToken(1).is(tok::identifier) && 
++        GetLookAheadToken(2).is(tok::ellipsis) && 
++        GetLookAheadToken(3).is(tok::ellipsis) ) {  return false; }
+   case tok::kw_extern:
+   case tok::kw___private_extern__:
+   case tok::kw_static:
 Index: lib/Parse/ParseObjc.cpp
 ===================================================================
 --- lib/Parse/ParseObjc.cpp	(revision 123041)
@@ -1304,6 +1483,27 @@ Index: lib/Parse/ParseObjc.cpp
    unsigned nKeys = KeyIdents.size();
    if (nKeys == 0)
      KeyIdents.push_back(selIdent);
+@@ -2265,3 +2565,20 @@
+   return Owned(Actions.ParseObjCSelectorExpression(Sel, AtLoc, SelectorLoc,
+                                                    LParenLoc, RParenLoc));
+  }
++
++/// \brief Parse Eero "typedef XX... ..." namespace-like prefixes.
++///
++ExprResult
++Parser::ParsePrefixTypedef(SourceLocation TypedefLoc) {
++  IdentifierInfo* prefixIdentInfo = Tok.getIdentifierInfo();
++  SourceLocation prefixLoc = ConsumeToken();
++  ConsumeToken(); // ellipsis
++  ConsumeToken(); // ellipsis
++
++  Actions.ActOnPrefixTypedef(getCurScope(),
++                             TypedefLoc,
++                             prefixLoc,
++                             prefixIdentInfo);
++  return ExprEmpty();
++}
++
 Index: lib/Parse/ParseExpr.cpp
 ===================================================================
 --- lib/Parse/ParseExpr.cpp	(revision 123041)
@@ -1375,8 +1575,14 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::kw___func__:       // primary-expression: __func__ [C99 6.4.2.2]
    case tok::kw___FUNCTION__:   // primary-expression: __FUNCTION__ [GNU]
    case tok::kw___PRETTY_FUNCTION__:  // primary-expression: __P..Y_F..N__ [GNU]
-@@ -919,8 +939,26 @@
+@@ -917,10 +937,32 @@
+     ConsumeCodeCompletionToken();
+     return ParseCastExpression(isUnaryExpression, isAddressOfOperand, 
                                 NotCastExpr, TypeOfCast);
++
++  case tok::kw_typedef: // should only get here with Eero "typedef XX... ..."
++    return ParsePrefixTypedef(ConsumeToken());
++
    case tok::l_square:
      // These can be followed by postfix-expr pieces.
 -    if (getLang().ObjC1)
@@ -1403,7 +1609,7 @@ Index: lib/Parse/ParseExpr.cpp
      // FALL THROUGH.      
    default:
      NotCastExpr = true;
-@@ -1513,7 +1551,7 @@
+@@ -1513,7 +1555,7 @@
                                            move_arg(ArgExprs), TypeOfCast);
      }
    } else {
@@ -1412,7 +1618,7 @@ Index: lib/Parse/ParseExpr.cpp
      ExprType = SimpleExpr;
      if (!Result.isInvalid() && Tok.is(tok::r_paren))
        Result = Actions.ActOnParenExpr(OpenLoc, Tok.getLocation(), Result.take());
-@@ -1676,7 +1714,7 @@
+@@ -1676,7 +1718,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -1421,7 +1627,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1700,7 +1738,7 @@
+@@ -1700,7 +1742,7 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -1430,7 +1636,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1723,6 +1761,10 @@
+@@ -1723,6 +1765,10 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
@@ -1939,7 +2145,21 @@ Index: lib/Parse/Parser.cpp
        if (Tok.is(Toks[i])) {
          if (DontConsume) {
            // Noop, don't consume the token.
-@@ -505,11 +508,18 @@
+@@ -474,6 +477,13 @@
+   case tok::kw_using:
+   case tok::kw_namespace:
+   case tok::kw_typedef:
++    if (getLang().Eero && 
++        GetLookAheadToken(1).is(tok::identifier) && 
++        GetLookAheadToken(2).is(tok::ellipsis) && 
++        GetLookAheadToken(3).is(tok::ellipsis) ) {
++      ParsePrefixTypedef(ConsumeToken());
++      break;
++    }   
+   case tok::kw_template:
+   case tok::kw_export:    // As in 'export template'
+   case tok::kw_static_assert:
+@@ -505,11 +515,18 @@
  
    default:
    dont_know:
