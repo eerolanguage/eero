@@ -751,6 +751,28 @@ Index: lib/Parse/ParseDecl.cpp
    case tok::kw_extern:
    case tok::kw___private_extern__:
    case tok::kw_static:
+@@ -2791,6 +2822,12 @@
+     goto PastIdentifier;
+   }
+     
++  if (getLang().Eero && 
++      Tok.isAtStartOfLine() && 
++      !InSystemHeader(Tok.getLocation())) {
++    return;
++  }
++
+   if (Tok.is(tok::l_paren)) {
+     // direct-declarator: '(' declarator ')'
+     // direct-declarator: '(' attributes declarator ')'
+@@ -2837,7 +2874,7 @@
+     D.AddAttributes(Attr.AttrList, AttrEndLoc);
+   }
+ 
+-  while (1) {
++  while (!getLang().Eero || !Tok.isAtStartOfLine() || InSystemHeader(Tok.getLocation())) {
+     if (Tok.is(tok::l_paren)) {
+       // The paren may be part of a C++ direct initializer, eg. "int x(1);".
+       // In such a case, check if we actually have a function declarator; if it
 Index: lib/Parse/ParseObjc.cpp
 ===================================================================
 --- lib/Parse/ParseObjc.cpp	(revision 123041)
