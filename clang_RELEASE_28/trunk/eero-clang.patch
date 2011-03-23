@@ -32,6 +32,21 @@ Index: include/clang/Basic/LangOptions.h
      NoConstantCFStrings = 0; InlineVisibilityHidden = 0;
      C99 = Microsoft = Borland = CPlusPlus = CPlusPlus0x = 0;
      CXXOperatorNames = PascalStrings = WritableStrings = ConstStrings = 0;
+Index: include/clang/Basic/DiagnosticSemaKinds.td
+===================================================================
+--- include/clang/Basic/DiagnosticSemaKinds.td	(revision 123041)
++++ include/clang/Basic/DiagnosticSemaKinds.td	(working copy)
+@@ -416,6 +416,10 @@
+ def warn_unimplemented_protocol_method : Warning<
+   "method in protocol not implemented">, InGroup<Protocol>;
+ 
++/// Eero (Objective-C) parser diagnostics
++def err_typecheck_case_incompatible : Error<
++  "case expression type does not match switch expression type %0">;
++
+ // C++ declarations
+ def err_static_assert_expression_is_not_constant : Error<
+   "static_assert expression is not an integral constant expression">;
 Index: include/clang/Basic/DiagnosticParseKinds.td
 ===================================================================
 --- include/clang/Basic/DiagnosticParseKinds.td	(revision 123041)
@@ -108,7 +123,27 @@ Index: include/clang/Sema/Sema.h
 ===================================================================
 --- include/clang/Sema/Sema.h	(revision 123041)
 +++ include/clang/Sema/Sema.h	(working copy)
-@@ -1233,7 +1233,7 @@
+@@ -851,6 +851,9 @@
+                      Decl **Elements, unsigned NumElements,
+                      Scope *S, AttributeList *Attr);
+ 
++  // Eero strict enums
++  void SetEnumAsStrict(Decl *EnumD);
++
+   DeclContext *getContainingDC(DeclContext *DC);
+ 
+   /// Set the current declaration context until it gets popped.
+@@ -880,7 +883,8 @@
+   NamedDecl *getCurFunctionOrMethodDecl();
+ 
+   /// Add this decl to the scope shadowed decl chains.
+-  void PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext = true);
++  void PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext = true, 
++                         bool AllowOverload = false); // added for Eero strict enums
+ 
+   /// isDeclInScope - If 'Ctx' is a function/method, isDeclInScope returns true
+   /// if 'D' is in Scope 'S', otherwise 'S' is ignored and isDeclInScope returns
+@@ -1233,7 +1237,7 @@
                                RedeclarationKind Redecl
                                  = NotForRedeclaration);
    bool LookupName(LookupResult &R, Scope *S,
@@ -117,7 +152,34 @@ Index: include/clang/Sema/Sema.h
    bool LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
                             bool InUnqualifiedLookup = false);
    bool LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
-@@ -3779,6 +3779,11 @@
+@@ -1561,6 +1565,11 @@
+                                         Stmt *First, Expr *Second,
+                                         SourceLocation RParenLoc, Stmt *Body);
+ 
++  StmtResult ActOnEeroForStrictEnumStmt(SourceLocation ForLoc,
++                                        Stmt *First, 
++                                        ParsedType EnumTy, 
++                                        Stmt *Body);
++
+   StmtResult ActOnGotoStmt(SourceLocation GotoLoc,
+                            SourceLocation LabelLoc,
+                            IdentifierInfo *LabelII);
+@@ -1917,6 +1926,14 @@
+   // __null
+   ExprResult ActOnGNUNullExpr(SourceLocation TokenLoc);
+ 
++  // Eero binary operator extensions (TODO: move to private section)
++  ExprResult ActOnEeroBinOp(Scope *S, SourceLocation TokLoc,
++                            tok::TokenKind Kind, BinaryOperatorKind Opc,
++                            Expr *LHS, Expr *RHS);
++
++  // Eero strict enum support (TODO: move to private section)
++  Expr* ResolveStrictEnumExpr(QualType KnownType, Expr* OverloadedExpr);
++
+   //===------------------------- "Block" Extension ------------------------===//
+ 
+   /// ActOnBlockStart - This callback is invoked when a block literal is
+@@ -3779,6 +3796,11 @@
                                    SourceLocation RBracLoc,
                                    MultiExprArg Args);
  
@@ -129,6 +191,40 @@ Index: include/clang/Sema/Sema.h
  
    enum PragmaOptionsAlignKind {
      POAK_Native,  // #pragma options align=native
+Index: include/clang/AST/Type.h
+===================================================================
+--- include/clang/AST/Type.h	(revision 123041)
++++ include/clang/AST/Type.h	(working copy)
+@@ -871,6 +871,7 @@
+   /// isComplexIntegerType() can be used to test for complex integers.
+   bool isIntegerType() const;     // C99 6.2.5p17 (int, char, bool, enum)
+   bool isEnumeralType() const;
++  bool isStrictEnumeralType() const; // Eero-specific
+   bool isBooleanType() const;
+   bool isCharType() const;
+   bool isWideCharType() const;
+@@ -2357,8 +2358,9 @@
+ /// EnumType - This is a helper class that allows the use of isa/cast/dyncast
+ /// to detect TagType objects of enums.
+ class EnumType : public TagType {
++  bool strict; // Eero -- strongly typed enums
+   explicit EnumType(const EnumDecl *D)
+-    : TagType(Enum, reinterpret_cast<const TagDecl*>(D), QualType()) { }
++    : TagType(Enum, reinterpret_cast<const TagDecl*>(D), QualType()), strict(false) { }
+   friend class ASTContext;   // ASTContext creates these.
+ public:
+ 
+@@ -2369,6 +2371,10 @@
+   bool isSugared() const { return false; }
+   QualType desugar() const { return QualType(this, 0); }
+ 
++  // Eero strict enum support
++  bool isStrict() const { return strict; }
++  void setStrict(bool makeStrict) { strict = makeStrict; }
++
+   static bool classof(const TagType *T);
+   static bool classof(const Type *T) {
+     return isa<TagType>(T) && classof(cast<TagType>(T));
 Index: include/clang/Driver/Types.def
 ===================================================================
 --- include/clang/Driver/Types.def	(revision 123041)
@@ -209,6 +305,18 @@ Index: include/clang/Parse/Parser.h
    // C99 6.8: Statements and Blocks.
  
    StmtResult ParseStatement() {
+@@ -1206,8 +1236,9 @@
+   void ParseObjCTypeQualifierList(ObjCDeclSpec &DS, bool IsParameter);
+ 
+   void ParseEnumSpecifier(SourceLocation TagLoc, DeclSpec &DS,
+-                const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),                          AccessSpecifier AS = AS_none);
+-  void ParseEnumBody(SourceLocation StartLoc, Decl *TagDecl);
++                const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),                          
++                AccessSpecifier AS = AS_none, bool Strict=false);
++  void ParseEnumBody(SourceLocation StartLoc, Decl *TagDecl, bool Strict=false);
+   void ParseStructUnionBody(SourceLocation StartLoc, unsigned TagType,
+                             Decl *TagDecl);
+ 
 Index: lib/Frontend/FrontendActions.cpp
 ===================================================================
 --- lib/Frontend/FrontendActions.cpp	(revision 123041)
@@ -368,7 +476,44 @@ Index: lib/Sema/SemaDecl.cpp
    }
    
    NamedDecl *IIDecl = 0;
-@@ -2963,8 +2963,14 @@
+@@ -430,7 +430,7 @@
+ }
+ 
+ /// Add this decl to the scope shadowed decl chains.
+-void Sema::PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext) {
++void Sema::PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext, bool AllowOverload) {
+   // Move up the scope chain until we find the nearest enclosing
+   // non-transparent context. The declaration will be introduced into this
+   // scope.
+@@ -455,16 +455,18 @@
+       cast<FunctionDecl>(D)->isFunctionTemplateSpecialization())
+     return;
+ 
+-  // If this replaces anything in the current scope, 
+-  IdentifierResolver::iterator I = IdResolver.begin(D->getDeclName()),
+-                               IEnd = IdResolver.end();
+-  for (; I != IEnd; ++I) {
+-    if (S->isDeclScope(*I) && D->declarationReplaces(*I)) {
+-      S->RemoveDecl(*I);
+-      IdResolver.RemoveDecl(*I);
++  if (!AllowOverload) { // Eero strict enums allow overloading of member constants
++    // If this replaces anything in the current scope, 
++    IdentifierResolver::iterator I = IdResolver.begin(D->getDeclName()),
++                                 IEnd = IdResolver.end();
++    for (; I != IEnd; ++I) {
++      if (S->isDeclScope(*I) && D->declarationReplaces(*I)) {
++        S->RemoveDecl(*I);
++        IdResolver.RemoveDecl(*I);
+ 
+-      // Should only need to replace one decl.
+-      break;
++        // Should only need to replace one decl.
++        break;
++      }
+     }
+   }
+ 
+@@ -2963,8 +2965,14 @@
    QualType T = NewVD->getType();
  
    if (T->isObjCObjectType()) {
@@ -385,7 +530,17 @@ Index: lib/Sema/SemaDecl.cpp
    }
  
    // Emit an error if an address space was applied to decl with local storage.
-@@ -6618,10 +6624,16 @@
+@@ -5890,7 +5898,8 @@
+ 
+   // C99 6.7.2.1p4 - verify the field type.
+   // C++ 9.6p3: A bit-field shall have integral or enumeration type.
+-  if (!FieldTy->isDependentType() && !FieldTy->isIntegralOrEnumerationType()) {
++  if ((!FieldTy->isDependentType() && !FieldTy->isIntegralOrEnumerationType()) ||
++      (getLangOptions().Eero && BitWidth->getType()->isStrictEnumeralType())) {
+     // Handle incomplete types with specific error.
+     if (RequireCompleteType(FieldLoc, FieldTy, diag::err_field_incomplete))
+       return true;
+@@ -6618,10 +6627,16 @@
          Record->setHasObjectMember(true);
      } else if (FDTy->isObjCObjectType()) {
        /// A field cannot be an Objective-c object
@@ -406,6 +561,262 @@ Index: lib/Sema/SemaDecl.cpp
      } else if (getLangOptions().ObjC1 &&
                 getLangOptions().getGCMode() != LangOptions::NonGC &&
                 Record &&
+@@ -6881,12 +6896,29 @@
+     assert((getLangOptions().CPlusPlus || !isa<TagDecl>(PrevDecl)) &&
+            "Received TagDecl when not in C++!");
+     if (!isa<TagDecl>(PrevDecl) && isDeclInScope(PrevDecl, CurContext, S)) {
+-      if (isa<EnumConstantDecl>(PrevDecl))
+-        Diag(IdLoc, diag::err_redefinition_of_enumerator) << Id;
+-      else
++      bool overloadAllowed = false;
++      if (isa<EnumConstantDecl>(PrevDecl)) {
++        if (getLangOptions().Eero) { 
++          // Overloaded constants are not allowed within a strict enum type,
++          // nor are non-strict enum constants eligible for overloading.
++          QualType ThisType = Context.getTypeDeclType(TheEnumDecl);
++          if (ThisType->isStrictEnumeralType()) {
++            QualType PrevType = cast<EnumConstantDecl>(PrevDecl)->getType();
++            if (PrevType->isStrictEnumeralType() && PrevType != ThisType) {
++              overloadAllowed = true;
++            }
++          }
++        }
++        if (!overloadAllowed) {
++          Diag(IdLoc, diag::err_redefinition_of_enumerator) << Id;
++        }
++      } else {
+         Diag(IdLoc, diag::err_redefinition) << Id;
+-      Diag(PrevDecl->getLocation(), diag::note_previous_definition);
+-      return 0;
++      }
++      if (!overloadAllowed) {
++        Diag(PrevDecl->getLocation(), diag::note_previous_definition);
++        return 0;
++      }
+     }
+   }
+ 
+@@ -6896,7 +6928,12 @@
+   // Register this decl in the current scope stack.
+   if (New) {
+     New->setAccess(TheEnumDecl->getAccess());
+-    PushOnScopeChains(New, S);
++    if (!getLangOptions().Eero || 
++        !Context.getTypeDeclType(TheEnumDecl)->isStrictEnumeralType()) {
++      PushOnScopeChains(New, S);
++    } else {
++      PushOnScopeChains(New, S, true, true /*AllowOverload*/);
++    }
+   }
+ 
+   return New;
+@@ -7092,7 +7129,8 @@
+                                                 ECD->getInitExpr(),
+                                                 /*base paths*/ 0,
+                                                 VK_RValue));
+-    if (getLangOptions().CPlusPlus)
++    if (getLangOptions().CPlusPlus || 
++        (getLangOptions().Eero && EnumType->isStrictEnumeralType()))
+       // C++ [dcl.enum]p4: Following the closing brace of an
+       // enum-specifier, each enumerator has the type of its
+       // enumeration.
+@@ -7105,6 +7143,14 @@
+                            NumPositiveBits, NumNegativeBits);
+ }
+ 
++// Eero strict enums
++void Sema::SetEnumAsStrict(Decl *EnumD) {
++  EnumDecl* enumDecl = cast<EnumDecl>(EnumD);
++  QualType Ty = Context.getTypeDeclType(enumDecl);
++  EnumType* ET = dyn_cast<EnumType>(Ty);
++  ET->setStrict(true);
++}
++
+ Decl *Sema::ActOnFileScopeAsmDecl(SourceLocation Loc, Expr *expr) {
+   StringLiteral *AsmString = cast<StringLiteral>(expr);
+ 
+Index: lib/Sema/SemaType.cpp
+===================================================================
+--- lib/Sema/SemaType.cpp	(revision 123041)
++++ lib/Sema/SemaType.cpp	(working copy)
+@@ -671,8 +671,9 @@
+   }
+ 
+   // C99 6.7.5.2p1: The size expression shall have integer type.
+-  if (ArraySize && !ArraySize->isTypeDependent() &&
+-      !ArraySize->getType()->isIntegerType()) {
++  if (ArraySize && ((!ArraySize->isTypeDependent() &&
++      !ArraySize->getType()->isIntegerType()) ||
++      (getLangOptions().Eero && ArraySize->getType()->isStrictEnumeralType()))) {
+     Diag(ArraySize->getLocStart(), diag::err_array_size_non_int)
+       << ArraySize->getType() << ArraySize->getSourceRange();
+     return QualType();
+Index: lib/Sema/SemaStmt.cpp
+===================================================================
+--- lib/Sema/SemaStmt.cpp	(revision 123041)
++++ lib/Sema/SemaStmt.cpp	(working copy)
+@@ -179,6 +179,49 @@
+                     SourceLocation ColonLoc) {
+   assert((LHSVal != 0) && "missing expression in case statement");
+ 
++  // Handle strict enum values
++  if (getLangOptions().Eero && !getCurFunction()->SwitchStack.empty()) {
++    QualType switchCondType = 
++        getCurFunction()->SwitchStack.back()->getCond()->getType();
++
++    if (switchCondType->isStrictEnumeralType()) {
++
++      Expr* errExpr = 0;
++
++      if (LHSVal->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++        Expr* resolvedExpr = ResolveStrictEnumExpr(switchCondType, LHSVal);
++        if (resolvedExpr) {
++          // TODO: free expr?
++          LHSVal = resolvedExpr;
++        } else {
++          errExpr = LHSVal;
++        }        
++      } else if (LHSVal->getType()->getCanonicalTypeUnqualified() !=
++                 switchCondType->getCanonicalTypeUnqualified()) {
++        errExpr = LHSVal;
++      }
++      
++      if (RHSVal && RHSVal->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++        Expr* resolvedExpr = ResolveStrictEnumExpr(switchCondType, RHSVal);
++        if (resolvedExpr) {
++          // TODO: free expr?
++          RHSVal = resolvedExpr;
++        } else {
++          errExpr = RHSVal;
++        }        
++      } else if (RHSVal && RHSVal->getType()->getCanonicalTypeUnqualified() !=
++                           switchCondType->getCanonicalTypeUnqualified()) {
++        errExpr = RHSVal;
++      }
++
++      if (errExpr) {
++        Diag(CaseLoc, diag::err_typecheck_case_incompatible) << 
++            switchCondType << errExpr->getSourceRange();
++        return StmtError();
++      }
++    }
++  }
++
+   // C99 6.8.4.2p3: The expression shall be an integer constant.
+   // However, GCC allows any evaluatable integer expression.
+   if (!LHSVal->isTypeDependent() && !LHSVal->isValueDependent() &&
+@@ -940,6 +983,111 @@
+                                                    ForLoc, RParenLoc));
+ }
+ 
++StmtResult 
++Sema::ActOnEeroForStrictEnumStmt(SourceLocation ForLoc,
++                                 Stmt *First, 
++                                 ParsedType EnumTy, 
++                                 Stmt *Body) {
++
++  assert(getLangOptions().Eero && First &&
++         "The parser shouldn't call this if there is no expr before 'in'.");
++
++  QualType FirstType;
++  bool hasDeclaration;
++  Expr* varExpr;
++  if (DeclStmt *DS = dyn_cast<DeclStmt>(First)) {
++    if (!DS->isSingleDecl())
++      return StmtError(Diag((*DS->decl_begin())->getLocation(),
++                       diag::err_toomany_element_decls));
++
++    hasDeclaration = true;  
++    Decl *D = DS->getSingleDecl();
++    FirstType = cast<ValueDecl>(D)->getType();
++    // C99 6.8.5p3: The declaration part of a 'for' statement shall only
++    // declare identifiers for objects having storage class 'auto' or
++    // 'register'.
++    VarDecl *VD = cast<VarDecl>(D);
++    if (VD->isBlockVarDecl() && !VD->hasLocalStorage())
++      return StmtError(Diag(VD->getLocation(),
++                            diag::err_non_variable_decl_in_for));
++
++    ValueDecl *valDecl = cast<ValueDecl>(D);
++    varExpr = new (Context) DeclRefExpr(valDecl, FirstType, SourceLocation());
++  } else {
++    varExpr = cast<Expr>(First);
++    if (!varExpr->isTypeDependent() &&
++        varExpr->isLvalue(Context) != Expr::LV_Valid)
++      return StmtError(Diag(First->getLocStart(),
++                 diag::err_selector_element_not_lvalue)
++        << First->getSourceRange());
++
++    hasDeclaration = false;
++    FirstType = static_cast<Expr*>(First)->getType();
++  }
++
++  if (!FirstType->isStrictEnumeralType())
++      Diag(ForLoc, diag::err_selector_element_type)
++        << FirstType << First->getSourceRange();
++
++  TypeSourceInfo *TInfo;
++  QualType Ty = GetTypeFromParser(EnumTy, &TInfo);
++
++  if (!Ty->isStrictEnumeralType())
++    return StmtError(Diag(ForLoc, diag::err_selector_element_type) << Ty);
++
++  EnumDecl* enumDecl = Ty->getAs<EnumType>()->getDecl();
++  EnumDecl::enumerator_iterator enumBegin = enumDecl->enumerator_begin();
++  EnumDecl::enumerator_iterator enumEnd = enumDecl->enumerator_end();
++
++  // Empty strict enums are not allowed, so it's safe to proceed
++
++  Expr* beginExpr = 
++      new (Context) DeclRefExpr(*enumBegin, Ty, SourceLocation());
++
++  // Get to the last value (no "iter--" available)
++  ValueDecl* enumLastValue = 0;
++  for ( EnumDecl::enumerator_iterator enumIt = enumBegin;
++        enumIt != enumEnd; 
++        enumIt++ ) {
++    enumLastValue = *enumIt;
++  }
++
++  Expr* endExpr = 
++      new (Context) DeclRefExpr(enumLastValue, Ty, SourceLocation());
++
++  ExprResult assignExpr = 
++      CreateBuiltinBinOp(First->getLocStart(),
++                         BO_Assign,
++                         varExpr,
++                         beginExpr);
++
++  Stmt* initStmt; 
++  if (hasDeclaration) {
++    Stmt* statements[2] = { First, assignExpr.take() };
++    initStmt = new (Context) CompoundStmt(Context,
++                                          statements,
++                                          2,
++                                          SourceLocation(),
++                                          SourceLocation());
++  } else {
++    initStmt = assignExpr.take();
++  }
++
++  ExprResult condExpr = CreateBuiltinBinOp(SourceLocation(),
++                                           BO_LE,
++                                           varExpr,
++                                           endExpr );
++
++  ExprResult incrExpr = CreateBuiltinUnaryOp(SourceLocation(),
++                                             UO_PostInc,
++                                             varExpr );
++
++  return Owned(new (Context) ForStmt(Context, initStmt, 
++                                     condExpr.take(), 0, 
++                                     incrExpr.take(), Body, ForLoc, 
++                                     SourceLocation(), SourceLocation()));
++}
++
+ StmtResult
+ Sema::ActOnGotoStmt(SourceLocation GotoLoc, SourceLocation LabelLoc,
+                     IdentifierInfo *LabelII) {
 Index: lib/Sema/SemaLookup.cpp
 ===================================================================
 --- lib/Sema/SemaLookup.cpp	(revision 123041)
@@ -432,7 +843,20 @@ Index: lib/Sema/SemaLookup.cpp
  
    if (!getLangOptions().CPlusPlus) {
      // Unqualified name lookup in C/Objective-C is purely lexical, so
-@@ -1113,6 +1115,31 @@
+@@ -1099,6 +1101,12 @@
+ 
+         R.resolveKind();
+ 
++        // Support overloaded Eero strict enum constants
++        if (getLangOptions().Eero && 
++            isa<EnumConstantDecl>(*I) &&
++            dyn_cast<EnumConstantDecl>(*I)->getType()->isStrictEnumeralType()) {
++          continue; // add to list instead of returning with just one
++        }
+         return true;
+       }
+   } else {
+@@ -1113,6 +1121,30 @@
    if (AllowBuiltinCreation)
      return LookupBuiltin(*this, R);
  
@@ -447,7 +871,6 @@ Index: lib/Sema/SemaLookup.cpp
 +    found = LookupName(R, curScope);
 +    
 +    while (!found && prefixScope) { // now check for any explicit prefix typedefs
-+      Scope::prefix_iterator it;
 +      for ( Scope::prefix_iterator it = prefixScope->prefix_begin(); 
 +            !found && it < prefixScope->prefix_end(); 
 +            it++ ) {
@@ -464,7 +887,7 @@ Index: lib/Sema/SemaLookup.cpp
    return false;
  }
  
-@@ -2027,7 +2054,7 @@
+@@ -2027,7 +2059,7 @@
                                    LookupNameKind NameKind,
                                    RedeclarationKind Redecl) {
    LookupResult R(*this, Name, Loc, NameKind, Redecl);
@@ -490,7 +913,90 @@ Index: lib/Sema/SemaExpr.cpp
 ===================================================================
 --- lib/Sema/SemaExpr.cpp	(revision 123041)
 +++ lib/Sema/SemaExpr.cpp	(working copy)
-@@ -6457,6 +6457,27 @@
+@@ -1154,8 +1154,18 @@
+     }
+   }
+ 
+-  if (R.isAmbiguous())
+-    return ExprError();
++  if (R.isAmbiguous()) {
++    bool allow = false;
++    if (getLangOptions().Eero) {
++      NamedDecl* decl = R.getRepresentativeDecl();
++      if (isa<EnumConstantDecl>(decl) &&
++          cast<EnumConstantDecl>(decl)->getType()->isStrictEnumeralType()) {
++        allow = true;
++      }
++    }
++    if (!allow)
++      return ExprError();
++  }
+ 
+   // Determine whether this name might be a candidate for
+   // argument-dependent lookup.
+@@ -2287,12 +2297,27 @@
+   case tok::minusminus: Opc = UO_PostDec; break;
+   }
+ 
++  // Eero strict enums disallow all postfix unary operators
++  if (getLangOptions().Eero && 
++      Input->getType()->isStrictEnumeralType() &&
++      !Input->isEvaluatable(Context)) {
++    return ExprError(Diag(OpLoc, diag::err_ovl_no_oper) <<
++                     Input->getType() << UnaryOperator::getOpcodeStr(Opc) <<
++                     Input->getSourceRange());
++  }
++
+   return BuildUnaryOp(S, OpLoc, Opc, Input);
+ }
+ 
+ ExprResult
+ Sema::ActOnArraySubscriptExpr(Scope *S, Expr *Base, SourceLocation LLoc,
+                               Expr *Idx, SourceLocation RLoc) {
++
++  if (getLangOptions().Eero && Idx->getType()->isStrictEnumeralType()) {
++    return ExprError(Diag(LLoc, diag::err_typecheck_subscript_not_integer)
++                     << Idx->getSourceRange());
++  }
++
+   // Since this might be a postfix expression, get rid of ParenListExprs.
+   ExprResult Result = MaybeConvertParenListExprToParenExpr(S, Base);
+   if (Result.isInvalid()) return ExprError();
+@@ -4992,6 +5017,33 @@
+   if (!lhsType->isReferenceType())
+     DefaultFunctionArrayLvalueConversion(rExpr);
+ 
++  // For Eero strict enums, allow assignments only if both sides are the same type.
++  // If the expression on the right is overloaded, resolve it with the left's type.
++  if (getLangOptions().Eero && lhsType->isStrictEnumeralType()) {
++    Sema::AssignConvertType result = Incompatible;
++    QualType rhsType = rExpr->getType();
++    if (rhsType->isStrictEnumeralType()) {
++      if (lhsType->getCanonicalTypeUnqualified() == 
++          rhsType->getCanonicalTypeUnqualified()) {
++        result = Compatible;
++      } else {
++        Diag(rExpr->getLocStart(), diag::err_typecheck_cond_incompatible_operands)
++          << lhsType << rhsType << rExpr->getSourceRange();        
++      }
++    } else if (rhsType->isSpecificBuiltinType(BuiltinType::Overload)) {
++      Expr* rhsExpr = ResolveStrictEnumExpr(lhsType, rExpr);
++      if (rhsExpr) {
++        // delete rExpr; // TODO: free up old expression?
++        rExpr = rhsExpr;
++        result = Compatible;
++      }
++    } else {
++      Diag(rExpr->getLocStart(), diag::err_typecheck_cond_incompatible_operands)
++        << lhsType << rhsType << rExpr->getSourceRange();        
++    }
++    return result;
++  }
++
+   Sema::AssignConvertType result =
+     CheckAssignmentConstraints(lhsType, rExpr->getType());
+ 
+@@ -6457,6 +6509,27 @@
    return Opc;
  }
  
@@ -518,37 +1024,166 @@ Index: lib/Sema/SemaExpr.cpp
  /// CreateBuiltinBinOp - Creates a new built-in binary operation with
  /// operator @p Opc at location @c TokLoc. This routine only supports
  /// built-in operations; ActOnBinOp handles overloaded operators.
-@@ -6680,6 +6701,30 @@
+@@ -6677,6 +6750,13 @@
+   assert((lhs != 0) && "ActOnBinOp(): missing left expression");
+   assert((rhs != 0) && "ActOnBinOp(): missing right expression");
+ 
++  if (getLangOptions().Eero) {  
++    ExprResult result = ActOnEeroBinOp(S, TokLoc, Kind, Opc, lhs, rhs);    
++    if (result.isUsable() || result.isInvalid()) {
++      return result;
++    }
++  }
++
    // Emit warnings for tricky precedence issues, e.g. "bitfield & 0x4 == 0"
    DiagnoseBinOpPrecedence(*this, Opc, TokLoc, lhs, rhs);
  
-+  // Eero -- if both operands are object instances
+@@ -6816,6 +6896,18 @@
+ // Unary Operators.  'Tok' is the token for the operator.
+ ExprResult Sema::ActOnUnaryOp(Scope *S, SourceLocation OpLoc,
+                                             tok::TokenKind Op, Expr *Input) {
++  // The only unary operator allowed on an Eero strict enum is getting its
++  // address (&).
 +  if (getLangOptions().Eero && 
-+      lhs->getType()->isObjCObjectPointerType() && 
++      Op != tok::amp && 
++      Input->getType()->isStrictEnumeralType() &&
++      !Input->isEvaluatable(Context)) {
++    return ExprError(Diag(OpLoc, diag::err_ovl_no_oper) <<
++                     Input->getType() << 
++                     UnaryOperator::getOpcodeStr(ConvertTokenKindToUnaryOpcode(Op)) <<
++                     Input->getSourceRange());
++  }
++
+   return BuildUnaryOp(S, OpLoc, ConvertTokenKindToUnaryOpcode(Op), Input);
+ }
+ 
+@@ -7930,3 +8022,108 @@
+   
+   return Owned(Sub);
+ }
++
++// Eero supports limited operator overloading for ObjC objects. It also limits
++// the operators allowed for its strict enums; only assignments and comparisons
++// are allowed. It also supports overloading of strict enum member constants.
++ExprResult Sema::ActOnEeroBinOp(Scope *S, SourceLocation TokLoc,
++                                tok::TokenKind Kind, BinaryOperatorKind Opc,
++                                Expr *lhs, Expr *rhs) {
++  ExprResult result;  
++
++  // If both operands are object instances, perform operator overloading
++  if (lhs->getType()->isObjCObjectPointerType() && 
 +      rhs->getType()->isObjCObjectPointerType()) { 
++
 +    bool invert;
 +    std::string SelName = ConvertTokenKindToBinarySelectorName(Kind, invert);
 +    if (!SelName.empty()) {
 +      IdentifierInfo &II = PP.getIdentifierTable().getOwn(SelName);      
 +      Selector Sel = PP.getSelectorTable().getUnarySelector(&II);
 +      if (!Sel.isNull()) {
-+        ExprResult Res = ActOnInstanceMessage(S,
-+                                              lhs, 
-+                                              Sel,
-+                                              TokLoc,
-+                                              TokLoc,
-+                                              TokLoc,
-+                                              MultiExprArg(*this,&rhs,1));
++        result = ActOnInstanceMessage(S,
++                                      lhs, 
++                                      Sel,
++                                      TokLoc,
++                                      TokLoc,
++                                      TokLoc,
++                                      MultiExprArg(*this,&rhs,1));
 +        if (invert) {
-+          Res = ActOnUnaryOp(S, TokLoc, tok::exclaim, Res.take());
++          result = ActOnUnaryOp(S, TokLoc, tok::exclaim, result.take());
 +        }
-+        return Res;
++      }
++    }
++  } else if (lhs->getType()->isSpecificBuiltinType(BuiltinType::Overload) &&
++             rhs->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++
++    Diag(TokLoc, diag::err_ovl_ambiguous_oper) << 
++        BinaryOperator::getOpcodeStr(Opc) << lhs->getSourceRange() << 
++        rhs->getSourceRange();
++    result = ExprError();
++
++  } else if (lhs->getType()->isStrictEnumeralType() ||
++             rhs->getType()->isStrictEnumeralType()) {        
++
++    if (rhs->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++      Expr* rhsExpr = ResolveStrictEnumExpr(lhs->getType(), rhs);
++      if (rhsExpr)
++        result = ActOnBinOp(S, TokLoc, Kind, lhs, rhsExpr);
++    } else if (lhs->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++      Expr* lhsExpr = ResolveStrictEnumExpr(rhs->getType(), lhs);
++      if (lhsExpr)
++        result = ActOnBinOp(S, TokLoc, Kind, lhsExpr, rhs);
++    } else {
++      switch (Kind) {
++        case tok::lessequal:
++        case tok::less:
++        case tok::greaterequal:
++        case tok::greater:
++        case tok::exclaimequal:
++        case tok::equalequal:
++        case tok::equal:
++          if (lhs->getType()->getCanonicalTypeUnqualified() != 
++              rhs->getType()->getCanonicalTypeUnqualified()) {
++            Diag(TokLoc, diag::err_typecheck_cond_incompatible_operands) << 
++                 lhs->getType() << rhs->getType() << 
++                 lhs->getSourceRange() << rhs->getSourceRange();
++            result = ExprError();
++          }
++          break;
++        default:
++          if (lhs->getType()->isStrictEnumeralType()) {
++            Diag(TokLoc, diag::err_ovl_no_oper) << 
++                 lhs->getType() << BinaryOperator::getOpcodeStr(Opc) << 
++                 lhs->getSourceRange();            
++          } else {
++            Diag(TokLoc, diag::err_ovl_no_oper) << 
++                 rhs->getType() << BinaryOperator::getOpcodeStr(Opc) << 
++                 rhs->getSourceRange();
++          }
++          result = ExprError();
 +      }
 +    }
 +  }
-   return BuildBinOp(S, TokLoc, Opc, lhs, rhs);
++  return result;
++}
++
++// For Eero strict enum support of overloaded member constants
++Expr* Sema::ResolveStrictEnumExpr(QualType KnownType, Expr* OverloadedExpr) {
++
++  Expr* resolvedExpr = 0;
++  UnresolvedLookupExpr *ULE = cast<UnresolvedLookupExpr>(OverloadedExpr);
++  for ( UnresolvedSetImpl::iterator it = ULE->decls_begin(); it != ULE->decls_end(); it++ ) {
++    if (isa<EnumConstantDecl>(*it)) {
++      EnumConstantDecl* enumConstDecl = cast<EnumConstantDecl>(*it);
++      QualType resolvedType = enumConstDecl->getType();
++      if (resolvedType == KnownType->getCanonicalTypeUnqualified()) {
++        resolvedExpr = new (Context) DeclRefExpr(enumConstDecl, 
++                                                 resolvedType, 
++                                                 OverloadedExpr->getLocStart());
++        break;
++      }
++    }
++  }
++  return resolvedExpr;
++}
++
++
+Index: lib/AST/Type.cpp
+===================================================================
+--- lib/AST/Type.cpp	(revision 123041)
++++ lib/AST/Type.cpp	(working copy)
+@@ -476,6 +476,13 @@
+   return false;
  }
  
++bool Type::isStrictEnumeralType() const { // Eero-specific
++  if (const EnumType *ET = dyn_cast<EnumType>(CanonicalType)) {
++    return ET->isStrict();
++  }
++  return false;
++}
++
+ bool Type::isBooleanType() const {
+   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+     return BT->getKind() == BuiltinType::Bool;
 Index: lib/Lex/LiteralSupport.cpp
 ===================================================================
 --- lib/Lex/LiteralSupport.cpp	(revision 123041)
@@ -690,7 +1325,21 @@ Index: lib/Parse/ParseDecl.cpp
      switch (Tok.getKind()) {
      default:
      DoneWithDeclSpec:
-@@ -1908,15 +1924,17 @@
+@@ -1227,6 +1243,13 @@
+     case tok::kw_typedef:
+       isInvalid = DS.SetStorageClassSpec(DeclSpec::SCS_typedef, Loc, PrevSpec,
+                                          DiagID);
++      // Eero strict enum declaration "typedef { A, B, C} TypeName"
++      if (getLang().Eero && NextToken().is(tok::l_brace)) {
++        DS.SetRangeEnd(Tok.getLocation());
++        ConsumeToken(); // typedef
++        ParseEnumSpecifier(Loc, DS, TemplateInfo, AS_none, true /*strict*/ );
++        continue;
++      }
+       break;
+     case tok::kw_extern:
+       if (DS.isThreadSpecified())
+@@ -1908,15 +1931,17 @@
  
      if (Tok.is(tok::semi)) {
        ConsumeToken();
@@ -717,7 +1366,7 @@ Index: lib/Parse/ParseDecl.cpp
      }
    }
  
-@@ -1933,6 +1951,10 @@
+@@ -1933,6 +1958,10 @@
                        AttrList.get());
    StructScope.Exit();
    Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, RBraceLoc);
@@ -728,7 +1377,65 @@ Index: lib/Parse/ParseDecl.cpp
  }
  
  
-@@ -2306,6 +2328,11 @@
+@@ -1950,7 +1979,7 @@
+ ///
+ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
+                                 const ParsedTemplateInfo &TemplateInfo,
+-                                AccessSpecifier AS) {
++                                AccessSpecifier AS, bool Strict) {
+   // Parse the tag portion of this.
+   if (Tok.is(tok::code_completion)) {
+     // Code completion for an enum name.
+@@ -2070,7 +2099,7 @@
+   }
+   
+   if (Tok.is(tok::l_brace))
+-    ParseEnumBody(StartLoc, TagDecl);
++    ParseEnumBody(StartLoc, TagDecl, Strict);
+ 
+   // FIXME: The DeclSpec should keep the locations of both the keyword
+   // and the name (if there is one).
+@@ -2089,7 +2118,7 @@
+ ///       enumeration-constant:
+ ///         identifier
+ ///
+-void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
++void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl, bool Strict) {
+   // Enter the scope of the enum body and start the definition.
+   ParseScope EnumScope(this, Scope::DeclScope);
+   Actions.ActOnTagStartDefinition(getCurScope(), EnumDecl);
+@@ -2104,6 +2133,10 @@
+ 
+   Decl *LastEnumConstDecl = 0;
+ 
++  if (getLang().Eero && Strict) {
++    Actions.SetEnumAsStrict(EnumDecl);
++  }
++
+   // Parse the enumerator-list.
+   while (Tok.is(tok::identifier)) {
+     IdentifierInfo *Ident = Tok.getIdentifierInfo();
+@@ -2112,10 +2145,15 @@
+     SourceLocation EqualLoc;
+     ExprResult AssignedVal;
+     if (Tok.is(tok::equal)) {
+-      EqualLoc = ConsumeToken();
+-      AssignedVal = ParseConstantExpression();
+-      if (AssignedVal.isInvalid())
+-        SkipUntil(tok::comma, tok::r_brace, true, true);
++      if (!getLang().Eero || !Strict) { // if a standard enum
++        EqualLoc = ConsumeToken();
++        AssignedVal = ParseConstantExpression();
++        if (AssignedVal.isInvalid())
++          SkipUntil(tok::comma, tok::r_brace, true, true);
++      } else { // not allowed for Eero strict enums
++        Diag(Tok, diag::err_expected_comma);
++        SkipUntil(tok::comma, true, true);
++      }
+     }
+ 
+     // Install the enumerator constant into EnumDecl.
+@@ -2306,6 +2344,11 @@
        return false;
      if (TryAltiVecVectorToken())
        return true;
@@ -740,7 +1447,7 @@ Index: lib/Parse/ParseDecl.cpp
      // Fall through.
    case tok::kw_typename: // typename T::type
      // Annotate typenames and C++ scope specifiers.  If we get one, just
-@@ -2329,6 +2356,10 @@
+@@ -2329,6 +2372,10 @@
  
      // storage-class-specifier
    case tok::kw_typedef:
@@ -751,7 +1458,7 @@ Index: lib/Parse/ParseDecl.cpp
    case tok::kw_extern:
    case tok::kw___private_extern__:
    case tok::kw_static:
-@@ -2791,6 +2822,12 @@
+@@ -2791,6 +2838,12 @@
      goto PastIdentifier;
    }
      
@@ -764,7 +1471,7 @@ Index: lib/Parse/ParseDecl.cpp
    if (Tok.is(tok::l_paren)) {
      // direct-declarator: '(' declarator ')'
      // direct-declarator: '(' attributes declarator ')'
-@@ -2837,7 +2874,7 @@
+@@ -2837,7 +2890,7 @@
      D.AddAttributes(Attr.AttrList, AttrEndLoc);
    }
  
@@ -2126,7 +2833,80 @@ Index: lib/Parse/ParseStmt.cpp
    ExprResult Value;
  
    bool ForEach = false;
-@@ -1091,8 +1246,16 @@
+@@ -993,6 +1148,7 @@
+   ExprResult Collection;
+   FullExprArg ThirdPart(Actions);
+   Decl *SecondVar = 0;
++  TypeResult StrictEnumType = TypeResult(true); // Eero
+   
+   if (Tok.is(tok::code_completion)) {
+     Actions.CodeCompleteOrdinaryName(getCurScope(), 
+@@ -1026,17 +1182,34 @@
+       // ObjC: for (id x in expr)
+       ConsumeToken(); // consume 'in'
+       
+-      if (Tok.is(tok::code_completion)) {
+-        Actions.CodeCompleteObjCForCollection(getCurScope(), DG);
+-        ConsumeCodeCompletionToken();
++      // Eero supports strict enum types for the "in" range
++      if (getLang().Eero && isTypeSpecifierQualifier()) { 
++        StrictEnumType = ParseTypeName();
++        if (StrictEnumType.isInvalid()) {
++          Diag(Tok, diag::err_expected_type_name_after_typename);
++          return StmtError(Diag(Tok, diag::err_expected_type));
++        }
++      } else {        
++        if (Tok.is(tok::code_completion)) {
++          Actions.CodeCompleteObjCForCollection(getCurScope(), DG);
++          ConsumeCodeCompletionToken();
++        }
++        Collection = ParseExpression();
+       }
+-      Collection = ParseExpression();
+     } else {
+       Diag(Tok, diag::err_expected_semi_for);
+       SkipUntil(tok::semi);
+     }
+   } else {
+-    Value = ParseExpression();
++    if (getLang().Eero && NextToken().is(tok::identifier)) {
++      Token tempSemicolon(Tok);
++      tempSemicolon.setKind(tok::semi);
++      PP.EnterToken(tempSemicolon);
++      Value = ParseExpression();
++      ConsumeToken(); // inserted temp semicolon
++    } else {
++      Value = ParseExpression();
++    }
+ 
+     // Turn the expression into a stmt.
+     if (!Value.isInvalid())
+@@ -1047,11 +1220,20 @@
+     } else if ((ForEach = isTokIdentifier_in())) {
+       ConsumeToken(); // consume 'in'
+       
+-      if (Tok.is(tok::code_completion)) {
+-        Actions.CodeCompleteObjCForCollection(getCurScope(), DeclGroupPtrTy());
+-        ConsumeCodeCompletionToken();
++      // Eero supports strict enum types for the "in" range
++      if (getLang().Eero && isTypeSpecifierQualifier()) { 
++        StrictEnumType = ParseTypeName();
++        if (StrictEnumType.isInvalid()) {
++          Diag(Tok, diag::err_expected_type_name_after_typename);
++          return StmtError(Diag(Tok, diag::err_expected_type));
++        }
++      } else {
++        if (Tok.is(tok::code_completion)) {
++          Actions.CodeCompleteObjCForCollection(getCurScope(), DeclGroupPtrTy());
++          ConsumeCodeCompletionToken();
++        }
++        Collection = ParseExpression();
+       }
+-      Collection = ParseExpression();
+     } else {
+       if (!Value.isInvalid()) Diag(Tok, diag::err_expected_semi_for);
+       SkipUntil(tok::semi);
+@@ -1091,8 +1273,16 @@
      }
    }
    // Match the ')'.
@@ -2144,7 +2924,20 @@ Index: lib/Parse/ParseStmt.cpp
    // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
    // there is no compound stmt.  C90 does not have this clause.  We only do this
    // if the body isn't a compound statement to avoid push/pop in common cases.
-@@ -1206,7 +1369,7 @@
+@@ -1123,6 +1313,12 @@
+     return Actions.ActOnForStmt(ForLoc, LParenLoc, FirstPart.take(), SecondPart,
+                                 SecondVar, ThirdPart, RParenLoc, Body.take());
+ 
++  if (getLang().Eero && !StrictEnumType.isInvalid())
++    return Actions.ActOnEeroForStrictEnumStmt(ForLoc, 
++                                              FirstPart.take(), 
++                                              StrictEnumType.take(), 
++                                              Body.take());
++
+   // FIXME: It isn't clear how to communicate the late destruction of 
+   // C++ temporaries used to create the collection.
+   return Actions.ActOnObjCForCollectionStmt(ForLoc, LParenLoc, FirstPart.take(), 
+@@ -1206,7 +1402,7 @@
    SourceLocation ReturnLoc = ConsumeToken();  // eat the 'return'.
  
    ExprResult R;
