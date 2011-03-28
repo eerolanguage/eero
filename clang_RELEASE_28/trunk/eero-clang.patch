@@ -51,13 +51,15 @@ Index: include/clang/Basic/DiagnosticParseKinds.td
 ===================================================================
 --- include/clang/Basic/DiagnosticParseKinds.td	(revision 123041)
 +++ include/clang/Basic/DiagnosticParseKinds.td	(working copy)
-@@ -251,6 +251,11 @@
+@@ -251,6 +251,13 @@
    "declaration does not declare a parameter">;
  def err_no_matching_param : Error<"parameter named %0 is missing">;
  
 +/// Eero (Objective-C) parser diagnostics
 +def err_ambiguous_indentation : Error<"ambiguous indentation">;
 +def err_goto_statement_forbidden : Error<"goto statement is forbidden">;
++def err_lbrace_not_allowed : Error<"'{' not allowed here">;
++def err_rbrace_not_allowed : Error<"'}' not allowed here">;
 +
 +
  /// C++ parser diagnostics
@@ -251,7 +253,7 @@ Index: include/clang/Parse/Parser.h
  public:
    Parser(Preprocessor &PP, Sema &Actions);
    ~Parser();
-@@ -464,6 +467,29 @@
+@@ -464,6 +467,30 @@
                          const char *DiagMsg = "",
                          tok::TokenKind SkipToTok = tok::unknown);
  
@@ -273,6 +275,7 @@ Index: include/clang/Parse/Parser.h
 +  void InsertToken(const tok::TokenKind tokenKind) {
 +    PP.EnterToken(Tok);
 +    Tok.setKind(tokenKind);
++    Tok.setLength(0);
 +  }
 +
 +  /// Const value used with Eero
@@ -281,7 +284,7 @@ Index: include/clang/Parse/Parser.h
    //===--------------------------------------------------------------------===//
    // Scope manipulation
  
-@@ -931,10 +957,10 @@
+@@ -931,10 +958,10 @@
    //===--------------------------------------------------------------------===//
    // C99 6.5: Expressions.
    
@@ -294,7 +297,7 @@ Index: include/clang/Parse/Parser.h
  
    ExprResult ParseExpressionWithLeadingAt(SourceLocation AtLoc);
  
-@@ -1114,6 +1140,10 @@
+@@ -1114,6 +1141,10 @@
    bool ParseObjCXXMessageReceiver(bool &IsExpr, void *&TypeOrExpr);
  
    //===--------------------------------------------------------------------===//
@@ -305,7 +308,7 @@ Index: include/clang/Parse/Parser.h
    // C99 6.8: Statements and Blocks.
  
    StmtResult ParseStatement() {
-@@ -1206,8 +1236,9 @@
+@@ -1206,8 +1237,9 @@
    void ParseObjCTypeQualifierList(ObjCDeclSpec &DS, bool IsParameter);
  
    void ParseEnumSpecifier(SourceLocation TagLoc, DeclSpec &DS,
@@ -2426,7 +2429,7 @@ Index: lib/Parse/ParseStmt.cpp
      }
      // PASS THROUGH.
  
-@@ -136,14 +167,24 @@
+@@ -136,17 +167,34 @@
          ConsumeToken();
        return StmtError();
      }
@@ -2453,7 +2456,17 @@ Index: lib/Parse/ParseStmt.cpp
      return ParseDefaultStatement(AttrList.take());
  
    case tok::l_brace:                // C99 6.8.2: compound-statement
-@@ -166,6 +207,11 @@
++    if (getLang().Eero && 
++        Tok.getLength() != 0 && // if not an inserted left brace
++        !InSystemHeader(Tok.getLocation())) {
++      Diag(Tok, diag::err_lbrace_not_allowed);
++      SkipUntil(tok::semi);
++      return StmtError();
++    }
+     return ParseCompoundStatement(AttrList.take());
+   case tok::semi:                   // C99 6.8.3p3: expression[opt] ';'
+     return Actions.ActOnNullStmt(ConsumeToken());
+@@ -166,6 +214,11 @@
      return ParseForStatement(AttrList.take());
  
    case tok::kw_goto:                // C99 6.8.6.1: goto-statement
@@ -2465,7 +2478,7 @@ Index: lib/Parse/ParseStmt.cpp
      Res = ParseGotoStatement(AttrList.take());
      SemiError = "goto";
      break;
-@@ -200,7 +246,7 @@
+@@ -200,7 +253,7 @@
    // If we reached this code, the statement must end in a semicolon.
    if (Tok.is(tok::semi)) {
      ConsumeToken();
@@ -2474,7 +2487,7 @@ Index: lib/Parse/ParseStmt.cpp
      // If the result was valid, then we do want to diagnose this.  Use
      // ExpectAndConsume to emit the diagnostic, even though we know it won't
      // succeed.
-@@ -316,14 +362,22 @@
+@@ -316,14 +369,22 @@
      
      ColonProtection.restore();
  
@@ -2503,7 +2516,7 @@ Index: lib/Parse/ParseStmt.cpp
      StmtResult Case =
        Actions.ActOnCaseStmt(CaseLoc, LHS.get(), DotDotDotLoc,
                              RHS.get(), ColonLoc);
-@@ -346,7 +400,7 @@
+@@ -346,7 +407,7 @@
      }
  
      // Handle all case statements.
@@ -2512,7 +2525,7 @@ Index: lib/Parse/ParseStmt.cpp
  
    assert(!TopLevelCase.isInvalid() && "Should have parsed at least one case!");
  
-@@ -385,15 +439,23 @@
+@@ -385,15 +446,23 @@
  
    assert(Tok.is(tok::kw_default) && "Not a default stmt!");
    SourceLocation DefaultLoc = ConsumeToken();  // eat the 'default'.
@@ -2544,7 +2557,7 @@ Index: lib/Parse/ParseStmt.cpp
    // Diagnose the common error "switch (X) {... default: }", which is not valid.
    if (Tok.is(tok::r_brace)) {
      Diag(Tok, diag::err_label_end_of_compound_statement);
-@@ -451,7 +513,19 @@
+@@ -451,7 +520,19 @@
    return ParseCompoundStatementBody(isStmtExpr);
  }
  
@@ -2564,7 +2577,7 @@ Index: lib/Parse/ParseStmt.cpp
  /// ParseCompoundStatementBody - Parse a sequence of statements and invoke the
  /// ActOnCompoundStmt action.  This expects the '{' to be the current token, and
  /// consume the '}' at the end of the block.  It does not manipulate the scope
-@@ -468,7 +542,32 @@
+@@ -468,7 +549,32 @@
  
    typedef StmtVector StmtsTy;
    StmtsTy Stmts(Actions);
@@ -2597,7 +2610,7 @@ Index: lib/Parse/ParseStmt.cpp
      StmtResult R;
      if (Tok.isNot(tok::kw___extension__)) {
        R = ParseStatementOrDeclaration(false);
-@@ -504,10 +603,14 @@
+@@ -504,10 +610,14 @@
            continue;
          }
  
@@ -2616,7 +2629,7 @@ Index: lib/Parse/ParseStmt.cpp
          R = Actions.ActOnExprStmt(Actions.MakeFullExpr(Res.get()));
        }
      }
-@@ -516,6 +619,10 @@
+@@ -516,10 +626,22 @@
        Stmts.push_back(R.release());
    }
  
@@ -2625,9 +2638,24 @@ Index: lib/Parse/ParseStmt.cpp
 +  }
 +
    // We broke out of the while loop because we found a '}' or EOF.
-   if (Tok.isNot(tok::r_brace)) {
-     Diag(Tok, diag::err_expected_rbrace);
-@@ -545,7 +652,11 @@
+-  if (Tok.isNot(tok::r_brace)) {
+-    Diag(Tok, diag::err_expected_rbrace);
+-    Diag(LBraceLoc, diag::note_matching) << "{";
++  if (!getLang().Eero || InSystemHeader(LBraceLoc)) {
++    if (Tok.isNot(tok::r_brace)) {
++      Diag(Tok, diag::err_expected_rbrace);
++      Diag(LBraceLoc, diag::note_matching) << "{";
++      return StmtError();
++    } 
++  } else if (Tok.is(tok::eof)) { // exit compound body 
++    InsertToken(tok::r_brace);
++  } else if (Tok.getLength() != 0) { // if not an inserted right brace
++    Diag(Tok, diag::err_rbrace_not_allowed);
++    SkipUntil(tok::r_brace);
+     return StmtError();
+   }
+ 
+@@ -545,7 +667,11 @@
                                         bool ConvertToBoolean) {
    bool ParseError = false;
    
@@ -2640,7 +2668,7 @@ Index: lib/Parse/ParseStmt.cpp
    if (getLang().CPlusPlus) 
      ParseError = ParseCXXCondition(ExprResult, DeclResult, Loc, 
                                     ConvertToBoolean);
-@@ -570,8 +681,10 @@
+@@ -570,8 +696,10 @@
        return true;
    }
  
@@ -2653,7 +2681,7 @@ Index: lib/Parse/ParseStmt.cpp
    return false;
  }
  
-@@ -590,7 +703,7 @@
+@@ -590,7 +718,7 @@
    assert(Tok.is(tok::kw_if) && "Not an if stmt!");
    SourceLocation IfLoc = ConsumeToken();  // eat the 'if'.
  
@@ -2662,7 +2690,7 @@ Index: lib/Parse/ParseStmt.cpp
      Diag(Tok, diag::err_expected_lparen_after) << "if";
      SkipUntil(tok::semi);
      return StmtError();
-@@ -620,6 +733,11 @@
+@@ -620,6 +748,11 @@
  
    FullExprArg FullCondExp(Actions.MakeFullExpr(CondExp.get()));
  
@@ -2674,7 +2702,7 @@ Index: lib/Parse/ParseStmt.cpp
    // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
    // there is no compound stmt.  C90 does not have this clause.  We only do this
    // if the body isn't a compound statement to avoid push/pop in common cases.
-@@ -654,25 +772,38 @@
+@@ -654,25 +787,38 @@
    StmtResult ElseStmt;
  
    if (Tok.is(tok::kw_else)) {
@@ -2730,7 +2758,7 @@ Index: lib/Parse/ParseStmt.cpp
    }
  
    IfScope.Exit();
-@@ -713,7 +844,7 @@
+@@ -713,7 +859,7 @@
    assert(Tok.is(tok::kw_switch) && "Not a switch stmt!");
    SourceLocation SwitchLoc = ConsumeToken();  // eat the 'switch'.
  
@@ -2739,7 +2767,7 @@ Index: lib/Parse/ParseStmt.cpp
      Diag(Tok, diag::err_expected_lparen_after) << "switch";
      SkipUntil(tok::semi);
      return StmtError();
-@@ -759,7 +890,12 @@
+@@ -759,7 +905,12 @@
        SkipUntil(tok::semi);
      return move(Switch);
    }
@@ -2753,7 +2781,7 @@ Index: lib/Parse/ParseStmt.cpp
    // C99 6.8.4p3 - In C99, the body of the switch statement is a scope, even if
    // there is no compound stmt.  C90 does not have this clause.  We only do this
    // if the body isn't a compound statement to avoid push/pop in common cases.
-@@ -800,7 +936,7 @@
+@@ -800,7 +951,7 @@
    SourceLocation WhileLoc = Tok.getLocation();
    ConsumeToken();  // eat the 'while'.
  
@@ -2762,7 +2790,7 @@ Index: lib/Parse/ParseStmt.cpp
      Diag(Tok, diag::err_expected_lparen_after) << "while";
      SkipUntil(tok::semi);
      return StmtError();
-@@ -836,6 +972,11 @@
+@@ -836,6 +987,11 @@
  
    FullExprArg FullCond(Actions.MakeFullExpr(Cond.get()));
  
@@ -2774,7 +2802,7 @@ Index: lib/Parse/ParseStmt.cpp
    // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
    // there is no compound stmt.  C90 does not have this clause.  We only do this
    // if the body isn't a compound statement to avoid push/pop in common cases.
-@@ -884,6 +1025,11 @@
+@@ -884,6 +1040,11 @@
  
    ParseScope DoScope(this, ScopeFlags);
  
@@ -2786,7 +2814,7 @@ Index: lib/Parse/ParseStmt.cpp
    // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
    // there is no compound stmt.  C90 does not have this clause. We only do this
    // if the body isn't a compound statement to avoid push/pop in common cases.
-@@ -912,16 +1058,22 @@
+@@ -912,16 +1073,22 @@
    }
    SourceLocation WhileLoc = ConsumeToken();
  
@@ -2812,7 +2840,7 @@ Index: lib/Parse/ParseStmt.cpp
    DoScope.Exit();
  
    if (Cond.isInvalid() || Body.isInvalid())
-@@ -951,7 +1103,7 @@
+@@ -951,7 +1118,7 @@
    assert(Tok.is(tok::kw_for) && "Not a for stmt!");
    SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
  
@@ -2821,7 +2849,7 @@ Index: lib/Parse/ParseStmt.cpp
      Diag(Tok, diag::err_expected_lparen_after) << "for";
      SkipUntil(tok::semi);
      return StmtError();
-@@ -983,7 +1135,10 @@
+@@ -983,7 +1150,10 @@
  
    ParseScope ForScope(this, ScopeFlags);
  
@@ -2833,7 +2861,7 @@ Index: lib/Parse/ParseStmt.cpp
    ExprResult Value;
  
    bool ForEach = false;
-@@ -993,6 +1148,7 @@
+@@ -993,6 +1163,7 @@
    ExprResult Collection;
    FullExprArg ThirdPart(Actions);
    Decl *SecondVar = 0;
@@ -2841,7 +2869,7 @@ Index: lib/Parse/ParseStmt.cpp
    
    if (Tok.is(tok::code_completion)) {
      Actions.CodeCompleteOrdinaryName(getCurScope(), 
-@@ -1026,17 +1182,34 @@
+@@ -1026,17 +1197,34 @@
        // ObjC: for (id x in expr)
        ConsumeToken(); // consume 'in'
        
@@ -2881,7 +2909,7 @@ Index: lib/Parse/ParseStmt.cpp
  
      // Turn the expression into a stmt.
      if (!Value.isInvalid())
-@@ -1047,11 +1220,20 @@
+@@ -1047,11 +1235,20 @@
      } else if ((ForEach = isTokIdentifier_in())) {
        ConsumeToken(); // consume 'in'
        
@@ -2906,7 +2934,7 @@ Index: lib/Parse/ParseStmt.cpp
      } else {
        if (!Value.isInvalid()) Diag(Tok, diag::err_expected_semi_for);
        SkipUntil(tok::semi);
-@@ -1091,8 +1273,16 @@
+@@ -1091,8 +1288,16 @@
      }
    }
    // Match the ')'.
@@ -2924,7 +2952,7 @@ Index: lib/Parse/ParseStmt.cpp
    // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
    // there is no compound stmt.  C90 does not have this clause.  We only do this
    // if the body isn't a compound statement to avoid push/pop in common cases.
-@@ -1123,6 +1313,12 @@
+@@ -1123,6 +1328,12 @@
      return Actions.ActOnForStmt(ForLoc, LParenLoc, FirstPart.take(), SecondPart,
                                  SecondVar, ThirdPart, RParenLoc, Body.take());
  
@@ -2937,7 +2965,7 @@ Index: lib/Parse/ParseStmt.cpp
    // FIXME: It isn't clear how to communicate the late destruction of 
    // C++ temporaries used to create the collection.
    return Actions.ActOnObjCForCollectionStmt(ForLoc, LParenLoc, FirstPart.take(), 
-@@ -1206,7 +1402,7 @@
+@@ -1206,7 +1417,7 @@
    SourceLocation ReturnLoc = ConsumeToken();  // eat the 'return'.
  
    ExprResult R;
@@ -2998,3 +3026,33 @@ Index: lib/Parse/Parser.cpp
    }
  
    // This routine returns a DeclGroup, if the thing we parsed only contains a
+@@ -534,6 +551,17 @@
+ bool Parser::isStartOfFunctionDefinition(const ParsingDeclarator &Declarator) {
+   assert(Declarator.getTypeObject(0).Kind == DeclaratorChunk::Function &&
+          "Isn't a function declarator");
++  // Check for Eero function definition or declaration
++  if (getLang().Eero && 
++      Tok.isAtStartOfLine() && 
++      !InSystemHeader(Tok.getLocation())) {
++    if (Column(Tok.getLocation()) >   // look for indentation
++        Column(Declarator.getSourceRange().getBegin())) {
++      return true;
++    } else {
++      return false;
++    }
++  }
+   if (Tok.is(tok::l_brace))   // int X() {}
+     return true;
+   
+@@ -649,6 +677,11 @@
+          "This isn't a function declarator!");
+   const DeclaratorChunk::FunctionTypeInfo &FTI = FnTypeInfo.Fun;
+ 
++  // For Eero, it's easiest if we just inject the inferred left brace
++  if (getLang().Eero && !InSystemHeader(Tok.getLocation())) {
++    InsertToken(tok::l_brace);
++  }
++
+   // If this is C90 and the declspecs were completely missing, fudge in an
+   // implicit int.  We do this here because this is the only place where
+   // declaration-specifiers are completely optional in the grammar.
