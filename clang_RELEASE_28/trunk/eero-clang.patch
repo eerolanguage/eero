@@ -2978,17 +2978,23 @@ Index: lib/Parse/Parser.cpp
 ===================================================================
 --- lib/Parse/Parser.cpp	(revision 123041)
 +++ lib/Parse/Parser.cpp	(working copy)
-@@ -182,6 +182,9 @@
-   while (1) {
-     // If we found one of the tokens, stop and return true.
-     for (unsigned i = 0; i != NumToks; ++i) {
-+      if (getLang().Eero && (StopAtSemi || Toks[i] == tok::semi))
-+        if (Tok.isAtStartOfLine())
-+          return true;      
-       if (Tok.is(Toks[i])) {
-         if (DontConsume) {
-           // Noop, don't consume the token.
-@@ -474,6 +477,13 @@
+@@ -190,6 +190,15 @@
+         }
+         return true;
+       }
++      // For Eero searches on semicolon, skip to next statement in current block
++      if (getLang().Eero && 
++          (StopAtSemi || Toks[i] == tok::semi) &&
++          !InSystemHeader(Tok.getLocation()) &&
++          Tok.isAtStartOfLine() && 
++          !indentationPositions.empty() &&
++          Column(Tok.getLocation()) <= indentationPositions.front()) {
++        return false;
++      }
+     }
+ 
+     switch (Tok.getKind()) {
+@@ -474,6 +483,13 @@
    case tok::kw_using:
    case tok::kw_namespace:
    case tok::kw_typedef:
@@ -3002,7 +3008,7 @@ Index: lib/Parse/Parser.cpp
    case tok::kw_template:
    case tok::kw_export:    // As in 'export template'
    case tok::kw_static_assert:
-@@ -505,11 +515,18 @@
+@@ -505,11 +521,18 @@
  
    default:
    dont_know:
@@ -3026,7 +3032,7 @@ Index: lib/Parse/Parser.cpp
    }
  
    // This routine returns a DeclGroup, if the thing we parsed only contains a
-@@ -534,6 +551,17 @@
+@@ -534,6 +557,17 @@
  bool Parser::isStartOfFunctionDefinition(const ParsingDeclarator &Declarator) {
    assert(Declarator.getTypeObject(0).Kind == DeclaratorChunk::Function &&
           "Isn't a function declarator");
@@ -3044,7 +3050,7 @@ Index: lib/Parse/Parser.cpp
    if (Tok.is(tok::l_brace))   // int X() {}
      return true;
    
-@@ -649,6 +677,11 @@
+@@ -649,6 +683,11 @@
           "This isn't a function declarator!");
    const DeclaratorChunk::FunctionTypeInfo &FTI = FnTypeInfo.Fun;
  
