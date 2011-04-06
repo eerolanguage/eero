@@ -104,27 +104,49 @@
                 "__strong",
                 "__weak",
                 "@catch",
+                "catch",
                 "@class",
+                "class",
                 "@defs",
+                "defs",
                 "@dynamic",
+                "dynamic",
                 "@encode",
+                "encode",
                 "@end",
+                "end",
                 "@finally",
+                "finally",
                 "@implementation",
+                "implementation",
                 "@interface",
+                "interface",
                 "@optional",
+                "optional",
                 "@package",
+                "package",
                 "@private",
+                "private",
                 "@property",
+                "property",
                 "@protected",
+                "protected",
                 "@protocol",
+                "protocol",
                 "@public",
+                "public",
                 "@required",
+                "required",
                 "@selector",
+                "selector",
                 "@synchronized",
+                "synchronized",
                 "@synthesize",
+                "synthesize",
                 "@throw",
+                "throw",
                 "@try",
+                "try",
                 "bycopy",
                 "byref",
                 "in",
@@ -155,16 +177,12 @@
                 "and_eq",
                 "bitand",
                 "bitor",
-                "class",
                 "compl",
                 "false",
                 "not",
                 "not_eq",
                 "or",
                 "or_eq",
-                "private",
-                "protected",
-                "public",
                 "true",
                 "xor",
                 "xor_eq",
@@ -270,6 +288,8 @@
                 "xcode.lang.eero.implementation.declarator",
                 "xcode.lang.eero.protocol.declarator",
                 "xcode.lang.eero.property.declarator",
+                "xcode.lang.eero.synthesize.declarator",
+                "xcode.lang.eero.dynamic.declarator",
                 "xcode.lang.eero.attribute",
                 "xcode.lang.eero.identifier",
                 "xcode.lang.number",
@@ -376,7 +396,7 @@
         Syntax = {
             Tokenizer = "xcode.lang.eero.lexer";
             Rules = (
-                "@implementation",
+                "@implementation|implementation",
                 "xcode.lang.eero.classnameclause",
             );
             Type = "xcode.syntax.name.tree";
@@ -387,7 +407,7 @@
         Syntax = {
             Tokenizer = "xcode.lang.eero.lexer";
             Rules = (
-                "@interface",
+                "@interface|interface",
                 "xcode.lang.eero.classnameclause",
                 "xcode.lang.eero.baseclassclause?",
                 "xcode.lang.eero.protocolclause?",
@@ -400,7 +420,7 @@
         Syntax = {
             Tokenizer = "xcode.lang.eero.lexer";
             Rules = (
-                "@protocol",
+                "@protocol|protocol",
                 "xcode.lang.eero.protocolname",
             );
             Type = "xcode.syntax.name.tree";
@@ -554,6 +574,7 @@
             Tokenizer = "xcode.lang.eero.lexer.toplevel";
             Start = "xcode.lang.eero.protocol.declarator";
             End = "@end";
+            AltEnd = "end";
             Foldable = YES;
             IncludeRules = (
                 "xcode.lang.eero.method.declaration",
@@ -570,6 +591,7 @@
             Tokenizer = "xcode.lang.eero.lexer.toplevel";
             Start = "xcode.lang.eero.interface.declarator";
             End = "@end";
+            AltEnd = "end";
             Foldable = YES;
             IncludeRules = (
                 "xcode.lang.eero.c.block",
@@ -587,6 +609,7 @@
             Tokenizer = "xcode.lang.eero.lexer.toplevel";
             Start = "xcode.lang.eero.implementation.declarator";
             End = "@end";
+            AltEnd = "end";
             Foldable = YES;
             IncludeRules = (
                 "xcode.lang.eero.method.definition",
@@ -874,7 +897,7 @@
         Syntax = {
             Tokenizer = "xcode.lang.eero.lexer";
             Rules = (
-                "@property",
+                "@property|property",
                 "xcode.lang.eero.property.options?",
             );
         };
@@ -986,20 +1009,38 @@
         Identifier = "xcode.lang.eero.property.implementation.synthesize";
         Syntax = {
             Tokenizer = "xcode.lang.eero.property.lexer";
-            Start = "@synthesize";
+            Start = "xcode.lang.eero.synthesize.declarator";
             End = "xcode.lang.eero.property.end";
             AltEnd = ";";
             Type = "xcode.syntax.declaration.property";
         };
     },
     {
+        Identifier = "xcode.lang.eero.synthesize.declarator";
+        Syntax = {
+            Tokenizer = "xcode.lang.eero.lexer";
+            Rules = (
+                "@synthesize|synthesize",
+            );
+        };
+    },
+    {
         Identifier = "xcode.lang.eero.property.implementation.dynamic";
         Syntax = {
             Tokenizer = "xcode.lang.eero.property.lexer";
-            Start = "@dynamic";
+            Start = "xcode.lang.eero.dynamic.declarator";
             End = "xcode.lang.eero.property.end";
             AltEnd = ";";
             Type = "xcode.syntax.declaration.property";
+        };
+    },
+    {
+        Identifier = "xcode.lang.eero.dynamic.declarator";
+        Syntax = {
+            Tokenizer = "xcode.lang.eero.lexer";
+            Rules = (
+                "@dynamic|dynamic",
+            );
         };
     },
     
