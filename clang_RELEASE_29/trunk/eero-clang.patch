@@ -1,0 +1,3179 @@
+Index: include/clang/Frontend/FrontendAction.h
+===================================================================
+--- include/clang/Frontend/FrontendAction.h	(revision 129311)
++++ include/clang/Frontend/FrontendAction.h	(working copy)
+@@ -32,6 +32,7 @@
+   IK_CXX,
+   IK_ObjC,
+   IK_ObjCXX,
++  IK_Eero,  
+   IK_PreprocessedC,
+   IK_PreprocessedCXX,
+   IK_PreprocessedObjC,
+Index: include/clang/Basic/LangOptions.h
+===================================================================
+--- include/clang/Basic/LangOptions.h	(revision 129311)
++++ include/clang/Basic/LangOptions.h	(working copy)
+@@ -47,6 +47,8 @@
+   unsigned ObjCDefaultSynthProperties : 1; // Objective-C auto-synthesized properties.
+   unsigned AppleKext         : 1;  // Allow apple kext features.
+ 
++  unsigned Eero              : 1;  // Eero (Objective-C 2 dialect) support enabled.
++
+   unsigned PascalStrings     : 1;  // Allow Pascal strings
+   unsigned WritableStrings   : 1;  // Allow writable strings
+   unsigned ConstStrings      : 1;  // Add const qualifier to strings (-Wwrite-strings)
+@@ -162,7 +164,7 @@
+     Trigraphs = BCPLComment = Bool = DollarIdents = AsmPreprocessor = 0;
+     GNUMode = GNUKeywords = ImplicitInt = Digraphs = 0;
+     HexFloats = 0;
+-    GC = ObjC1 = ObjC2 = ObjCNonFragileABI = ObjCNonFragileABI2 = 0;
++    GC = ObjC1 = ObjC2 = Eero = ObjCNonFragileABI = ObjCNonFragileABI2 = 0;
+     AppleKext = 0;
+     ObjCDefaultSynthProperties = 0;
+     NoConstantCFStrings = 0; InlineVisibilityHidden = 0;
+Index: include/clang/Basic/DiagnosticSemaKinds.td
+===================================================================
+--- include/clang/Basic/DiagnosticSemaKinds.td	(revision 129311)
++++ include/clang/Basic/DiagnosticSemaKinds.td	(working copy)
+@@ -474,6 +474,10 @@
+ def warn_unimplemented_protocol_method : Warning<
+   "method in protocol not implemented">, InGroup<Protocol>;
+ 
++/// Eero (Objective-C) parser diagnostics
++def err_typecheck_case_incompatible : Error<
++  "case expression type does not match switch expression type %0">;
++
+ // C++ declarations
+ def err_static_assert_expression_is_not_constant : Error<
+   "static_assert expression is not an integral constant expression">;
+Index: include/clang/Basic/DiagnosticParseKinds.td
+===================================================================
+--- include/clang/Basic/DiagnosticParseKinds.td	(revision 129311)
++++ include/clang/Basic/DiagnosticParseKinds.td	(working copy)
+@@ -286,6 +286,13 @@
+   "declaration does not declare a parameter">;
+ def err_no_matching_param : Error<"parameter named %0 is missing">;
+ 
++/// Eero (Objective-C) parser diagnostics
++def err_ambiguous_indentation : Error<"ambiguous indentation">;
++def err_goto_statement_forbidden : Error<"goto statement is forbidden">;
++def err_lbrace_not_allowed : Error<"'{' not allowed here">;
++def err_rbrace_not_allowed : Error<"'}' not allowed here">;
++
++
+ /// C++ parser diagnostics
+ def err_expected_unqualified_id : Error<
+   "expected %select{identifier|unqualified-id}0">;
+Index: include/clang/Sema/Scope.h
+===================================================================
+--- include/clang/Sema/Scope.h	(revision 129311)
++++ include/clang/Sema/Scope.h	(working copy)
+@@ -16,6 +16,7 @@
+ 
+ #include "clang/Basic/Diagnostic.h"
+ #include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
+ 
+ namespace clang {
+ 
+@@ -123,6 +124,10 @@
+   typedef llvm::SmallPtrSet<Decl *, 32> DeclSetTy;
+   DeclSetTy DeclsInScope;
+ 
++  /// List of (ordered) Eero namespace-like prefixes
++  typedef llvm::SmallVector<const char *, 32> PrefixListTy;
++  PrefixListTy PrefixesInScope;
++
+   /// Entity - The entity with which this scope is associated. For
+   /// example, the entity of a class scope is the class itself, the
+   /// entity of a function scope is a function, etc. This field is
+@@ -212,6 +217,16 @@
+     return DeclsInScope.count(D) != 0;
+   }
+ 
++  /// Support for Eero namespace-like prefixes
++  typedef PrefixListTy::const_iterator prefix_iterator;
++  prefix_iterator prefix_begin() { return PrefixesInScope.begin(); }
++  prefix_iterator prefix_end()   { return PrefixesInScope.end(); }
++  bool prefix_empty()            const { return PrefixesInScope.empty(); }
++  //
++  void AddPrefix(const char *P) {
++    PrefixesInScope.push_back(P);
++  }
++
+   void* getEntity() const { return Entity; }
+   void setEntity(void *E) { Entity = E; }
+ 
+@@ -311,6 +326,7 @@
+     if (Flags & BlockScope)         BlockParent = this;
+     if (Flags & TemplateParamScope) TemplateParamParent = this;
+     DeclsInScope.clear();
++    PrefixesInScope.clear(); // Eero
+     UsingDirectives.clear();
+     Entity = 0;
+     ErrorTrap.reset();
+Index: include/clang/Sema/Sema.h
+===================================================================
+--- include/clang/Sema/Sema.h	(revision 129311)
++++ include/clang/Sema/Sema.h	(working copy)
+@@ -1024,6 +1024,9 @@
+                      Decl **Elements, unsigned NumElements,
+                      Scope *S, AttributeList *Attr);
+ 
++  // Eero strict enums
++  void SetEnumAsStrict(Decl *EnumD);
++
+   DeclContext *getContainingDC(DeclContext *DC);
+ 
+   /// Set the current declaration context until it gets popped.
+@@ -1053,7 +1056,8 @@
+   NamedDecl *getCurFunctionOrMethodDecl();
+ 
+   /// Add this decl to the scope shadowed decl chains.
+-  void PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext = true);
++  void PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext = true, 
++                         bool AllowOverload = false); // added for Eero strict enums
+ 
+   /// isDeclInScope - If 'Ctx' is a function/method, isDeclInScope returns true
+   /// if 'D' is in Scope 'S', otherwise 'S' is ignored and isDeclInScope returns
+@@ -1441,7 +1445,7 @@
+                               RedeclarationKind Redecl
+                                 = NotForRedeclaration);
+   bool LookupName(LookupResult &R, Scope *S,
+-                  bool AllowBuiltinCreation = false);
++                  bool AllowBuiltinCreation = false, bool doPrefixLookup = false);
+   bool LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
+                            bool InUnqualifiedLookup = false);
+   bool LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
+@@ -1792,6 +1796,11 @@
+                                         Stmt *First, Expr *Second,
+                                         SourceLocation RParenLoc, Stmt *Body);
+ 
++  StmtResult ActOnEeroForStrictEnumStmt(SourceLocation ForLoc,
++                                        Stmt *First, 
++                                        ParsedType EnumTy, 
++                                        Stmt *Body);
++
+   StmtResult ActOnGotoStmt(SourceLocation GotoLoc,
+                            SourceLocation LabelLoc,
+                            LabelDecl *TheDecl);
+@@ -2172,6 +2181,14 @@
+   // __null
+   ExprResult ActOnGNUNullExpr(SourceLocation TokenLoc);
+ 
++  // Eero binary operator extensions (TODO: move to private section)
++  ExprResult ActOnEeroBinOp(Scope *S, SourceLocation TokLoc,
++                            tok::TokenKind Kind, BinaryOperatorKind Opc,
++                            Expr *LHS, Expr *RHS);
++
++  // Eero strict enum support (TODO: move to private section)
++  Expr* ResolveStrictEnumExpr(QualType KnownType, Expr* OverloadedExpr);
++
+   //===------------------------- "Block" Extension ------------------------===//
+ 
+   /// ActOnBlockStart - This callback is invoked when a block literal is
+@@ -4627,6 +4644,11 @@
+                                   SourceLocation RBracLoc,
+                                   MultiExprArg Args);
+ 
++  /// Eero support for namespace-like prefixes
++  void ActOnPrefixTypedef(Scope *CurScope,
++                          SourceLocation TypedefLoc,
++                          SourceLocation PrefixNameLoc,
++                          IdentifierInfo *PrefixName);
+ 
+   enum PragmaOptionsAlignKind {
+     POAK_Native,  // #pragma options align=native
+Index: include/clang/AST/Decl.h
+===================================================================
+--- include/clang/AST/Decl.h	(revision 129311)
++++ include/clang/AST/Decl.h	(working copy)
+@@ -2249,6 +2249,9 @@
+   /// enumeration declared within the template.
+   EnumDecl *InstantiatedFrom;
+ 
++  /// Eero -- true if a strict enumerated type
++  bool Strict;
++
+   // The number of positive and negative bits required by the
+   // enumerators are stored in the SubclassBits field.
+   enum {
+@@ -2260,7 +2263,7 @@
+            IdentifierInfo *Id, EnumDecl *PrevDecl, SourceLocation StartL,
+            bool Scoped, bool ScopedUsingClassTag, bool Fixed)
+     : TagDecl(Enum, TTK_Enum, DC, L, Id, PrevDecl, StartL),
+-      InstantiatedFrom(0) {
++      InstantiatedFrom(0), Strict(false) {
+     assert(Scoped || !ScopedUsingClassTag);
+     IntegerType = (const Type*)0;
+     NumNegativeBits = 0;
+@@ -2404,6 +2407,10 @@
+ 
+   void setInstantiationOfMemberEnum(EnumDecl *IF) { InstantiatedFrom = IF; }
+ 
++  // Eero
++  bool isStrict() const { return Strict; }
++  void setStrict(bool strict) { Strict = strict; }
++
+   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
+   static bool classof(const EnumDecl *D) { return true; }
+   static bool classofKind(Kind K) { return K == Enum; }
+Index: include/clang/AST/Type.h
+===================================================================
+--- include/clang/AST/Type.h	(revision 129311)
++++ include/clang/AST/Type.h	(working copy)
+@@ -1182,6 +1182,7 @@
+   /// isComplexIntegerType() can be used to test for complex integers.
+   bool isIntegerType() const;     // C99 6.2.5p17 (int, char, bool, enum)
+   bool isEnumeralType() const;
++  bool isStrictEnumeralType() const; // Eero-specific
+   bool isBooleanType() const;
+   bool isCharType() const;
+   bool isWideCharType() const;
+Index: include/clang/Driver/Types.def
+===================================================================
+--- include/clang/Driver/Types.def	(revision 129311)
++++ include/clang/Driver/Types.def	(working copy)
+@@ -44,6 +44,7 @@
+ TYPE("cl",                       CL,           PP_C,            0,       "u")
+ TYPE("objective-c-cpp-output",   PP_ObjC,      INVALID,         "mi",    "u")
+ TYPE("objective-c",              ObjC,         PP_ObjC,         0,       "u")
++TYPE("eero",                     Eero,         PP_ObjC,         0,       "u")
+ TYPE("c++-cpp-output",           PP_CXX,       INVALID,         "ii",    "u")
+ TYPE("c++",                      CXX,          PP_CXX,          0,       "u")
+ TYPE("objective-c++-cpp-output", PP_ObjCXX,    INVALID,         "mii",   "u")
+Index: include/clang/Parse/Parser.h
+===================================================================
+--- include/clang/Parse/Parser.h	(revision 129311)
++++ include/clang/Parse/Parser.h	(working copy)
+@@ -150,6 +150,9 @@
+   /// Factory object for creating AttributeList objects.
+   AttributeList::Factory AttrFactory;
+ 
++  /// Used for Eero (Python-like) indentation tracking.
++  std::deque<unsigned> indentationPositions;
++
+ public:
+   Parser(Preprocessor &PP, Sema &Actions);
+   ~Parser();
+@@ -542,6 +545,30 @@
+   /// ExitScope - Pop a scope off the scope stack.
+   void ExitScope();
+ 
++
++  /// Convenience function used with Eero
++  bool InSystemHeader(const SourceLocation& Loc) {
++    if (PP.isInPrimaryFile())
++      return false;
++    else 
++      return PP.getSourceManager().isInSystemHeader(Loc);
++  }
++
++  /// Convenience function used with Eero
++  unsigned Column(const SourceLocation& Loc) {
++    return PP.getSourceManager().getInstantiationColumnNumber(Loc);
++  }
++
++  /// Convenience function used with Eero
++  void InsertToken(const tok::TokenKind tokenKind) {
++    PP.EnterToken(Tok);
++    Tok.setKind(tokenKind);
++    Tok.setLength(0);
++  }
++
++  /// Const value used with Eero
++  enum { InferredBracketOffset = 1000 };
++
+   //===--------------------------------------------------------------------===//
+   // Diagnostic Emission and Error recovery.
+ 
+@@ -1006,10 +1033,10 @@
+   //===--------------------------------------------------------------------===//
+   // C99 6.5: Expressions.
+   
+-  ExprResult ParseExpression();
++  ExprResult ParseExpression(bool isInParens = false);
+   ExprResult ParseConstantExpression();
+   // Expr that doesn't include commas.
+-  ExprResult ParseAssignmentExpression();
++  ExprResult ParseAssignmentExpression(bool isInParens = false);
+ 
+   ExprResult ParseExpressionWithLeadingAt(SourceLocation AtLoc);
+ 
+@@ -1197,6 +1224,10 @@
+   bool ParseObjCXXMessageReceiver(bool &IsExpr, void *&TypeOrExpr);
+ 
+   //===--------------------------------------------------------------------===//
++  // Eero-specific Expressions
++  ExprResult ParsePrefixTypedef(SourceLocation TypedefLoc);
++
++  //===--------------------------------------------------------------------===//
+   // C99 6.8: Statements and Blocks.
+ 
+   StmtResult ParseStatement() {
+@@ -1300,8 +1331,8 @@
+ 
+   void ParseEnumSpecifier(SourceLocation TagLoc, DeclSpec &DS,
+                 const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),
+-                AccessSpecifier AS = AS_none);
+-  void ParseEnumBody(SourceLocation StartLoc, Decl *TagDecl);
++                AccessSpecifier AS = AS_none, bool Strict=false);
++  void ParseEnumBody(SourceLocation StartLoc, Decl *TagDecl, bool Strict=false);
+   void ParseStructUnionBody(SourceLocation StartLoc, unsigned TagType,
+                             Decl *TagDecl);
+ 
+Index: lib/Frontend/FrontendActions.cpp
+===================================================================
+--- lib/Frontend/FrontendActions.cpp	(revision 129311)
++++ lib/Frontend/FrontendActions.cpp	(working copy)
+@@ -196,6 +196,7 @@
+   case IK_C:
+   case IK_CXX:
+   case IK_ObjC:
++  case IK_Eero:
+   case IK_ObjCXX:
+   case IK_OpenCL:
+     break;
+Index: lib/Frontend/CompilerInvocation.cpp
+===================================================================
+--- lib/Frontend/CompilerInvocation.cpp	(revision 129311)
++++ lib/Frontend/CompilerInvocation.cpp	(working copy)
+@@ -301,6 +301,7 @@
+   case IK_CXX:               return "c++";
+   case IK_LLVM_IR:           return "ir";
+   case IK_ObjC:              return "objective-c";
++  case IK_Eero:              return "eero";
+   case IK_ObjCXX:            return "objective-c++";
+   case IK_OpenCL:            return "cl";
+   case IK_PreprocessedC:     return "cpp-output";
+@@ -1151,6 +1152,7 @@
+       .Case("cl", IK_OpenCL)
+       .Case("c++", IK_CXX)
+       .Case("objective-c", IK_ObjC)
++      .Case("eero", IK_Eero)
+       .Case("objective-c++", IK_ObjCXX)
+       .Case("cpp-output", IK_PreprocessedC)
+       .Case("assembler-with-cpp", IK_Asm)
+@@ -1261,11 +1263,17 @@
+   if (IK == IK_Asm) {
+     Opts.AsmPreprocessor = 1;
+   } else if (IK == IK_ObjC ||
++             IK == IK_Eero ||
+              IK == IK_ObjCXX ||
+              IK == IK_PreprocessedObjC ||
+              IK == IK_PreprocessedObjCXX) {
+     Opts.ObjC1 = Opts.ObjC2 = 1;
+   }
++  
++  if (IK == IK_Eero) {
++    Opts.Eero = 1;
++    Opts.CXXOperatorNames = 1;
++  }
+ 
+   if (LangStd == LangStandard::lang_unspecified) {
+     // Based on the base language, pick one.
+@@ -1281,6 +1289,7 @@
+     case IK_C:
+     case IK_PreprocessedC:
+     case IK_ObjC:
++    case IK_Eero:
+     case IK_PreprocessedObjC:
+       LangStd = LangStandard::lang_gnu99;
+       break;
+@@ -1317,7 +1326,8 @@
+   Opts.Bool = Opts.OpenCL || Opts.CPlusPlus;
+ 
+   Opts.GNUKeywords = Opts.GNUMode;
+-  Opts.CXXOperatorNames = Opts.CPlusPlus;
++  if (Opts.CPlusPlus)
++    Opts.CXXOperatorNames = 1;
+ 
+   // Mimicing gcc's behavior, trigraphs are only enabled if -trigraphs
+   // is specified, or -std is set to a conforming mode.
+Index: lib/Frontend/FrontendOptions.cpp
+===================================================================
+--- lib/Frontend/FrontendOptions.cpp	(revision 129311)
++++ lib/Frontend/FrontendOptions.cpp	(working copy)
+@@ -19,6 +19,7 @@
+     .Case("i", IK_PreprocessedC)
+     .Case("ii", IK_PreprocessedCXX)
+     .Case("m", IK_ObjC)
++    .Case("ero", IK_Eero)
+     .Case("mi", IK_PreprocessedObjC)
+     .Cases("mm", "M", IK_ObjCXX)
+     .Case("mii", IK_PreprocessedObjCXX)
+Index: lib/Sema/SemaDeclObjC.cpp
+===================================================================
+--- lib/Sema/SemaDeclObjC.cpp	(revision 129311)
++++ lib/Sema/SemaDeclObjC.cpp	(working copy)
+@@ -1751,9 +1751,15 @@
+     // Methods cannot return interface types. All ObjC objects are
+     // passed by reference.
+     if (resultDeclType->isObjCObjectType()) {
+-      Diag(MethodLoc, diag::err_object_cannot_be_passed_returned_by_value)
+-        << 0 << resultDeclType;
+-      return 0;
++      if (!getLangOptions().Eero) {      
++        Diag(MethodLoc, diag::err_object_cannot_be_passed_returned_by_value)
++          << 0 << resultDeclType;
++        return 0;
++      } else { // make it a pointer instead of flagging it an error
++        QualType objectType = Context.getObjCObjectType( resultDeclType, 0, 0 );  
++        QualType pointerType = Context.getObjCObjectPointerType(objectType);
++        resultDeclType = pointerType;                    
++      }
+     }
+   } else // get the type for "id".
+     resultDeclType = Context.getObjCIdType();
+@@ -1803,10 +1809,16 @@
+                             SC_None, SC_None, 0);
+ 
+     if (ArgType->isObjCObjectType()) {
+-      Diag(ArgInfo[i].NameLoc,
+-           diag::err_object_cannot_be_passed_returned_by_value)
+-        << 1 << ArgType;
+-      Param->setInvalidDecl();
++      if (!getLangOptions().Eero) {
++        Diag(ArgInfo[i].NameLoc,
++             diag::err_object_cannot_be_passed_returned_by_value)
++          << 1 << ArgType;
++        Param->setInvalidDecl();
++      } else { // make it a pointer instead of flagging it an error
++        QualType objectType = Context.getObjCObjectType( ArgType, 0, 0 );  
++        QualType pointerType = Context.getObjCObjectPointerType(objectType);
++        Param->setType(pointerType);                    
++      }
+     }
+ 
+     Param->setObjCDeclQualifier(
+@@ -1967,8 +1979,12 @@
+   } else if (T->isDependentType()) {
+     // Okay: we don't know what this type will instantiate to.
+   } else if (!T->isObjCObjectPointerType()) {
+-    Invalid = true;
+-    Diag(NameLoc ,diag::err_catch_param_not_objc_type);
++    if (!getLangOptions().Eero || !T->isObjCObjectType()) {
++      Invalid = true;
++      Diag(NameLoc ,diag::err_catch_param_not_objc_type);
++    } else { // make it a pointer instead of flagging it an error
++      T = Context.getObjCObjectPointerType(T);
++    }
+   } else if (T->isObjCQualifiedIdType()) {
+     Invalid = true;
+     Diag(NameLoc, diag::err_illegal_qualifiers_on_catch_parm);
+@@ -2080,3 +2096,16 @@
+   }
+   return;
+ }
++
++/// Eero support for namespace-like prefixes
++
++void Sema::ActOnPrefixTypedef(Scope *CurScope,
++                              SourceLocation TypedefLoc,
++                              SourceLocation PrefixNameLoc,
++                              IdentifierInfo *PrefixName) {
++
++    // TODO: add error checking for duplicate prefixes in same scope?
++    
++    CurScope->AddPrefix(PrefixName->getNameStart());
++}
++
+Index: lib/Sema/SemaDecl.cpp
+===================================================================
+--- lib/Sema/SemaDecl.cpp	(revision 129311)
++++ lib/Sema/SemaDecl.cpp	(working copy)
+@@ -131,7 +131,7 @@
+     }
+   } else {
+     // Perform unqualified name lookup.
+-    LookupName(Result, S);
++    LookupName(Result, S,false,true);
+   }
+   
+   NamedDecl *IIDecl = 0;
+@@ -454,7 +454,7 @@
+ }
+ 
+ /// Add this decl to the scope shadowed decl chains.
+-void Sema::PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext) {
++void Sema::PushOnScopeChains(NamedDecl *D, Scope *S, bool AddToContext, bool AllowOverload) {
+   // Move up the scope chain until we find the nearest enclosing
+   // non-transparent context. The declaration will be introduced into this
+   // scope.
+@@ -479,16 +479,19 @@
+       cast<FunctionDecl>(D)->isFunctionTemplateSpecialization())
+     return;
+ 
+-  // If this replaces anything in the current scope, 
+-  IdentifierResolver::iterator I = IdResolver.begin(D->getDeclName()),
+-                               IEnd = IdResolver.end();
+-  for (; I != IEnd; ++I) {
+-    if (S->isDeclScope(*I) && D->declarationReplaces(*I)) {
+-      S->RemoveDecl(*I);
+-      IdResolver.RemoveDecl(*I);
++  IdentifierResolver::iterator I, IEnd;
++  if (!AllowOverload) { // Eero strict enums allow overloading of member constants
++    // If this replaces anything in the current scope, 
++    I = IdResolver.begin(D->getDeclName());
++    IEnd = IdResolver.end();
++    for (; I != IEnd; ++I) {
++      if (S->isDeclScope(*I) && D->declarationReplaces(*I)) {
++        S->RemoveDecl(*I);
++        IdResolver.RemoveDecl(*I);
+ 
+-      // Should only need to replace one decl.
+-      break;
++        // Should only need to replace one decl.
++        break;
++      }
+     }
+   }
+ 
+@@ -3375,8 +3378,14 @@
+   QualType T = NewVD->getType();
+ 
+   if (T->isObjCObjectType()) {
+-    Diag(NewVD->getLocation(), diag::err_statically_allocated_object);
+-    return NewVD->setInvalidDecl();
++    if (!getLangOptions().Eero) {
++      Diag(NewVD->getLocation(), diag::err_statically_allocated_object);
++      return NewVD->setInvalidDecl();
++    } else {
++      QualType objectType = Context.getObjCObjectType( T, 0, 0 );  
++      QualType pointerType = Context.getObjCObjectPointerType(objectType);
++      NewVD->setType(pointerType);                    
++    }
+   }
+ 
+   // Emit an error if an address space was applied to decl with local storage.
+@@ -6728,7 +6737,8 @@
+ 
+   // C99 6.7.2.1p4 - verify the field type.
+   // C++ 9.6p3: A bit-field shall have integral or enumeration type.
+-  if (!FieldTy->isDependentType() && !FieldTy->isIntegralOrEnumerationType()) {
++  if ((!FieldTy->isDependentType() && !FieldTy->isIntegralOrEnumerationType()) ||
++      (getLangOptions().Eero && BitWidth->getType()->isStrictEnumeralType())) {
+     // Handle incomplete types with specific error.
+     if (RequireCompleteType(FieldLoc, FieldTy, diag::err_field_incomplete))
+       return true;
+@@ -7464,10 +7474,16 @@
+         Record->setHasObjectMember(true);
+     } else if (FDTy->isObjCObjectType()) {
+       /// A field cannot be an Objective-c object
+-      Diag(FD->getLocation(), diag::err_statically_allocated_object);
+-      FD->setInvalidDecl();
+-      EnclosingDecl->setInvalidDecl();
+-      continue;
++      if (!getLangOptions().Eero) {
++        Diag(FD->getLocation(), diag::err_statically_allocated_object);
++        FD->setInvalidDecl();
++        EnclosingDecl->setInvalidDecl();
++        continue;
++      } else {
++        QualType objectType = Context.getObjCObjectType( FD->getType(), 0, 0 );  
++        QualType pointerType = Context.getObjCObjectPointerType(objectType);
++        FD->setType(pointerType);                 
++      }
+     } else if (getLangOptions().ObjC1 &&
+                getLangOptions().getGCMode() != LangOptions::NonGC &&
+                Record &&
+@@ -7819,12 +7835,29 @@
+     assert((getLangOptions().CPlusPlus || !isa<TagDecl>(PrevDecl)) &&
+            "Received TagDecl when not in C++!");
+     if (!isa<TagDecl>(PrevDecl) && isDeclInScope(PrevDecl, CurContext, S)) {
+-      if (isa<EnumConstantDecl>(PrevDecl))
+-        Diag(IdLoc, diag::err_redefinition_of_enumerator) << Id;
+-      else
++      bool overloadAllowed = false;
++      if (isa<EnumConstantDecl>(PrevDecl)) {
++        if (getLangOptions().Eero) { 
++          // Overloaded constants are not allowed within a strict enum type,
++          // nor are non-strict enum constants eligible for overloading.
++          QualType ThisType = Context.getTypeDeclType(TheEnumDecl);
++          if (ThisType->isStrictEnumeralType()) {
++            QualType PrevType = cast<EnumConstantDecl>(PrevDecl)->getType();
++            if (PrevType->isStrictEnumeralType() && PrevType != ThisType) {
++              overloadAllowed = true;
++            }
++          }
++        }
++        if (!overloadAllowed) {
++          Diag(IdLoc, diag::err_redefinition_of_enumerator) << Id;
++        }
++      } else {
+         Diag(IdLoc, diag::err_redefinition) << Id;
+-      Diag(PrevDecl->getLocation(), diag::note_previous_definition);
+-      return 0;
++      }
++      if (!overloadAllowed) {
++        Diag(PrevDecl->getLocation(), diag::note_previous_definition);
++        return 0;
++      }
+     }
+   }
+ 
+@@ -7848,7 +7881,12 @@
+ 
+     // Register this decl in the current scope stack.
+     New->setAccess(TheEnumDecl->getAccess());
+-    PushOnScopeChains(New, S);
++    if (!getLangOptions().Eero || 
++        !Context.getTypeDeclType(TheEnumDecl)->isStrictEnumeralType()) {
++      PushOnScopeChains(New, S);
++    } else {
++      PushOnScopeChains(New, S, true, true /*AllowOverload*/);
++    }
+   }
+ 
+   return New;
+@@ -8055,7 +8093,8 @@
+                                                 ECD->getInitExpr(),
+                                                 /*base paths*/ 0,
+                                                 VK_RValue));
+-    if (getLangOptions().CPlusPlus)
++    if (getLangOptions().CPlusPlus || 
++        (getLangOptions().Eero && EnumType->isStrictEnumeralType()))
+       // C++ [dcl.enum]p4: Following the closing brace of an
+       // enum-specifier, each enumerator has the type of its
+       // enumeration.
+@@ -8068,6 +8107,12 @@
+                            NumPositiveBits, NumNegativeBits);
+ }
+ 
++// Eero strict enums
++void Sema::SetEnumAsStrict(Decl *EnumD) {
++  EnumDecl* enumDecl = cast<EnumDecl>(EnumD);
++  enumDecl->setStrict(true);
++}
++
+ Decl *Sema::ActOnFileScopeAsmDecl(Expr *expr,
+                                   SourceLocation StartLoc,
+                                   SourceLocation EndLoc) {
+Index: lib/Sema/SemaType.cpp
+===================================================================
+--- lib/Sema/SemaType.cpp	(revision 129311)
++++ lib/Sema/SemaType.cpp	(working copy)
+@@ -1114,8 +1114,9 @@
+   // C99 6.7.5.2p1: The size expression shall have integer type.
+   // TODO: in theory, if we were insane, we could allow contextual
+   // conversions to integer type here.
+-  if (ArraySize && !ArraySize->isTypeDependent() &&
+-      !ArraySize->getType()->isIntegralOrUnscopedEnumerationType()) {
++  if (ArraySize && ((!ArraySize->isTypeDependent() &&
++      !ArraySize->getType()->isIntegralOrUnscopedEnumerationType()) ||
++      (getLangOptions().Eero && ArraySize->getType()->isStrictEnumeralType()))) {
+     Diag(ArraySize->getLocStart(), diag::err_array_size_non_int)
+       << ArraySize->getType() << ArraySize->getSourceRange();
+     return QualType();
+Index: lib/Sema/SemaStmt.cpp
+===================================================================
+--- lib/Sema/SemaStmt.cpp	(revision 129311)
++++ lib/Sema/SemaStmt.cpp	(working copy)
+@@ -190,6 +190,49 @@
+                     SourceLocation ColonLoc) {
+   assert((LHSVal != 0) && "missing expression in case statement");
+ 
++  // Handle strict enum values
++  if (getLangOptions().Eero && !getCurFunction()->SwitchStack.empty()) {
++    QualType switchCondType = 
++        getCurFunction()->SwitchStack.back()->getCond()->getType();
++
++    if (switchCondType->isStrictEnumeralType()) {
++
++      Expr* errExpr = 0;
++
++      if (LHSVal->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++        Expr* resolvedExpr = ResolveStrictEnumExpr(switchCondType, LHSVal);
++        if (resolvedExpr) {
++          // TODO: free expr?
++          LHSVal = resolvedExpr;
++        } else {
++          errExpr = LHSVal;
++        }        
++      } else if (LHSVal->getType()->getCanonicalTypeUnqualified() !=
++                 switchCondType->getCanonicalTypeUnqualified()) {
++        errExpr = LHSVal;
++      }
++      
++      if (RHSVal && RHSVal->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++        Expr* resolvedExpr = ResolveStrictEnumExpr(switchCondType, RHSVal);
++        if (resolvedExpr) {
++          // TODO: free expr?
++          RHSVal = resolvedExpr;
++        } else {
++          errExpr = RHSVal;
++        }        
++      } else if (RHSVal && RHSVal->getType()->getCanonicalTypeUnqualified() !=
++                           switchCondType->getCanonicalTypeUnqualified()) {
++        errExpr = RHSVal;
++      }
++
++      if (errExpr) {
++        Diag(CaseLoc, diag::err_typecheck_case_incompatible) << 
++            switchCondType << errExpr->getSourceRange();
++        return StmtError();
++      }
++    }
++  }
++
+   // C99 6.8.4.2p3: The expression shall be an integer constant.
+   // However, GCC allows any evaluatable integer expression.
+   if (!LHSVal->isTypeDependent() && !LHSVal->isValueDependent() &&
+@@ -936,6 +979,110 @@
+   return Owned(static_cast<Stmt*>(Result.get()));
+ }
+ 
++StmtResult 
++Sema::ActOnEeroForStrictEnumStmt(SourceLocation ForLoc,
++                                 Stmt *First, 
++                                 ParsedType EnumTy, 
++                                 Stmt *Body) {
++
++  assert(getLangOptions().Eero && First &&
++         "The parser shouldn't call this if there is no expr before 'in'.");
++
++  QualType FirstType;
++  bool hasDeclaration;
++  Expr* varExpr;
++  if (DeclStmt *DS = dyn_cast<DeclStmt>(First)) {
++    if (!DS->isSingleDecl())
++      return StmtError(Diag((*DS->decl_begin())->getLocation(),
++                       diag::err_toomany_element_decls));
++
++    hasDeclaration = true;  
++    Decl *D = DS->getSingleDecl();
++    FirstType = cast<ValueDecl>(D)->getType();
++    // C99 6.8.5p3: The declaration part of a 'for' statement shall only
++    // declare identifiers for objects having storage class 'auto' or
++    // 'register'.
++    VarDecl *VD = cast<VarDecl>(D);
++    if (VD->isLocalVarDecl() && !VD->hasLocalStorage())
++      return StmtError(Diag(VD->getLocation(),
++                            diag::err_non_variable_decl_in_for));
++
++    ValueDecl *valDecl = cast<ValueDecl>(D);
++    varExpr = new (Context) DeclRefExpr(valDecl, FirstType, VK_LValue, SourceLocation());
++  } else {
++    varExpr = cast<Expr>(First);
++    if (!varExpr->isTypeDependent() && !varExpr->isLValue()) {
++      return StmtError(Diag(First->getLocStart(),
++                 diag::err_selector_element_not_lvalue)
++        << First->getSourceRange());
++    }
++    hasDeclaration = false;
++    FirstType = static_cast<Expr*>(First)->getType();
++  }
++
++  if (!FirstType->isStrictEnumeralType())
++      Diag(ForLoc, diag::err_selector_element_type)
++        << FirstType << First->getSourceRange();
++
++  TypeSourceInfo *TInfo;
++  QualType Ty = GetTypeFromParser(EnumTy, &TInfo);
++
++  if (!Ty->isStrictEnumeralType())
++    return StmtError(Diag(ForLoc, diag::err_selector_element_type) << Ty);
++
++  EnumDecl* enumDecl = Ty->getAs<EnumType>()->getDecl();
++  EnumDecl::enumerator_iterator enumBegin = enumDecl->enumerator_begin();
++  EnumDecl::enumerator_iterator enumEnd = enumDecl->enumerator_end();
++
++  // Empty strict enums are not allowed, so it's safe to proceed
++
++  Expr* beginExpr = 
++      new (Context) DeclRefExpr(*enumBegin, Ty, VK_RValue, SourceLocation());
++
++  // Get to the last value (no "iter--" available)
++  ValueDecl* enumLastValue = 0;
++  for ( EnumDecl::enumerator_iterator enumIt = enumBegin;
++        enumIt != enumEnd; 
++        enumIt++ ) {
++    enumLastValue = *enumIt;
++  }
++
++  Expr* endExpr = 
++      new (Context) DeclRefExpr(enumLastValue, Ty, VK_RValue, SourceLocation());
++
++  ExprResult assignExpr = 
++      CreateBuiltinBinOp(First->getLocStart(),
++                         BO_Assign,
++                         varExpr,
++                         beginExpr);
++
++  Stmt* initStmt; 
++  if (hasDeclaration) {
++    Stmt* statements[2] = { First, assignExpr.take() };
++    initStmt = new (Context) CompoundStmt(Context,
++                                          statements,
++                                          2,
++                                          SourceLocation(),
++                                          SourceLocation());
++  } else {
++    initStmt = assignExpr.take();
++  }
++
++  ExprResult condExpr = CreateBuiltinBinOp(SourceLocation(),
++                                           BO_LE,
++                                           varExpr,
++                                           endExpr );
++
++  ExprResult incrExpr = CreateBuiltinUnaryOp(SourceLocation(),
++                                             UO_PostInc,
++                                             varExpr );
++
++  return Owned(new (Context) ForStmt(Context, initStmt, 
++                                     condExpr.take(), 0, 
++                                     incrExpr.take(), Body, ForLoc, 
++                                     SourceLocation(), SourceLocation()));
++}
++
+ StmtResult
+ Sema::ActOnObjCForCollectionStmt(SourceLocation ForLoc,
+                                  SourceLocation LParenLoc,
+Index: lib/Sema/SemaLookup.cpp
+===================================================================
+--- lib/Sema/SemaLookup.cpp	(revision 129311)
++++ lib/Sema/SemaLookup.cpp	(working copy)
+@@ -29,6 +29,7 @@
+ #include "clang/AST/ExprCXX.h"
+ #include "clang/Basic/Builtins.h"
+ #include "clang/Basic/LangOptions.h"
++#include "clang/Lex/Preprocessor.h"
+ #include "llvm/ADT/DenseSet.h"
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/SmallPtrSet.h"
+@@ -1054,11 +1055,12 @@
+ /// @returns The result of name lookup, which includes zero or more
+ /// declarations and possibly additional information used to diagnose
+ /// ambiguities.
+-bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation) {
++bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation, bool doPrefixLookup) {
+   DeclarationName Name = R.getLookupName();
+   if (!Name) return false;
+ 
+   LookupNameKind NameKind = R.getLookupKind();
++  Scope* curScope = S;
+ 
+   if (!getLangOptions().CPlusPlus) {
+     // Unqualified name lookup in C/Objective-C is purely lexical, so
+@@ -1119,6 +1121,12 @@
+ 
+         R.resolveKind();
+ 
++        // Support overloaded Eero strict enum constants
++        if (getLangOptions().Eero && 
++            isa<EnumConstantDecl>(*I) &&
++            dyn_cast<EnumConstantDecl>(*I)->getType()->isStrictEnumeralType()) {
++          continue; // add to list instead of returning with just one
++        }
+         return true;
+       }
+   } else {
+@@ -1133,6 +1141,30 @@
+   if (AllowBuiltinCreation)
+     return LookupBuiltin(*this, R);
+ 
++  if (getLangOptions().Eero && doPrefixLookup) { // use Eero prefix typedefs
++
++    const std::string& name(Name.getAsString());
++    Scope* prefixScope = curScope;
++    bool found = false;
++
++    // First check for the almighty "NS" prefix
++    R.setLookupName(&(PP.getIdentifierTable().getOwn("NS" + name)));
++    found = LookupName(R, curScope);
++    
++    while (!found && prefixScope) { // now check for any explicit prefix typedefs
++      for ( Scope::prefix_iterator it = prefixScope->prefix_begin(); 
++            !found && it < prefixScope->prefix_end(); 
++            it++ ) {
++        R.setLookupName(&(PP.getIdentifierTable().getOwn(*it + name)));
++        found = LookupName(R, curScope);
++      }
++      prefixScope = prefixScope->getParent(); // keep looking in enclosing scopes
++    }
++
++    if (!found) R.setLookupName(Name); // restore orig name for diagnostics
++    return found;
++  }
++
+   // If we didn't find a use of this identifier, the ExternalSource 
+   // may be able to handle the situation. 
+   // Note: some lookup failures are expected!
+@@ -2081,7 +2113,7 @@
+                                   LookupNameKind NameKind,
+                                   RedeclarationKind Redecl) {
+   LookupResult R(*this, Name, Loc, NameKind, Redecl);
+-  LookupName(R, S);
++  LookupName(R, S,false,true);
+   return R.getAsSingle<NamedDecl>();
+ }
+ 
+Index: lib/Sema/SemaExprObjC.cpp
+===================================================================
+--- lib/Sema/SemaExprObjC.cpp	(revision 129311)
++++ lib/Sema/SemaExprObjC.cpp	(working copy)
+@@ -665,7 +665,7 @@
+     return HasTrailingDot? ObjCInstanceMessage : ObjCSuperMessage;
+   
+   LookupResult Result(*this, Name, NameLoc, LookupOrdinaryName);
+-  LookupName(Result, S);
++  LookupName(Result, S,false,true);
+   
+   switch (Result.getResultKind()) {
+   case LookupResult::NotFound:
+@@ -841,7 +841,7 @@
+                                    MultiExprArg ArgsIn) {
+   SourceLocation Loc = SuperLoc.isValid()? SuperLoc
+     : ReceiverTypeInfo->getTypeLoc().getSourceRange().getBegin();
+-  if (LBracLoc.isInvalid()) {
++  if (!getLangOptions().Eero && LBracLoc.isInvalid()) {
+     Diag(Loc, diag::err_missing_open_square_message_send)
+       << FixItHint::CreateInsertion(Loc, "[");
+     LBracLoc = Loc;
+@@ -984,7 +984,7 @@
+   // The location of the receiver.
+   SourceLocation Loc = SuperLoc.isValid()? SuperLoc : Receiver->getLocStart();
+   
+-  if (LBracLoc.isInvalid()) {
++  if (!getLangOptions().Eero && LBracLoc.isInvalid()) {
+     Diag(Loc, diag::err_missing_open_square_message_send)
+       << FixItHint::CreateInsertion(Loc, "[");
+     LBracLoc = Loc;
+Index: lib/Sema/SemaExpr.cpp
+===================================================================
+--- lib/Sema/SemaExpr.cpp	(revision 129311)
++++ lib/Sema/SemaExpr.cpp	(working copy)
+@@ -1636,8 +1636,18 @@
+     }
+   }
+ 
+-  if (R.isAmbiguous())
+-    return ExprError();
++  if (R.isAmbiguous()) {
++    bool allow = false;
++    if (getLangOptions().Eero) {
++      NamedDecl* decl = R.getRepresentativeDecl();
++      if (isa<EnumConstantDecl>(decl) &&
++          cast<EnumConstantDecl>(decl)->getType()->isStrictEnumeralType()) {
++        allow = true;
++      }
++    }
++    if (!allow)
++      return ExprError();
++  }
+ 
+   // Determine whether this name might be a candidate for
+   // argument-dependent lookup.
+@@ -2897,6 +2907,15 @@
+   case tok::minusminus: Opc = UO_PostDec; break;
+   }
+ 
++  // Eero strict enums disallow all postfix unary operators
++  if (getLangOptions().Eero && 
++      Input->getType()->isStrictEnumeralType() &&
++      !Input->isEvaluatable(Context)) {
++    return ExprError(Diag(OpLoc, diag::err_ovl_no_oper) <<
++                     Input->getType() << UnaryOperator::getOpcodeStr(Opc) <<
++                     Input->getSourceRange());
++  }
++
+   return BuildUnaryOp(S, OpLoc, Opc, Input);
+ }
+ 
+@@ -2916,6 +2935,12 @@
+ ExprResult
+ Sema::ActOnArraySubscriptExpr(Scope *S, Expr *Base, SourceLocation LLoc,
+                               Expr *Idx, SourceLocation RLoc) {
++
++  if (getLangOptions().Eero && Idx->getType()->isStrictEnumeralType()) {
++    return ExprError(Diag(LLoc, diag::err_typecheck_subscript_not_integer)
++                     << Idx->getSourceRange());
++  }
++
+   // Since this might be a postfix expression, get rid of ParenListExprs.
+   ExprResult Result = MaybeConvertParenListExprToParenExpr(S, Base);
+   if (Result.isInvalid()) return ExprError();
+@@ -6246,6 +6271,33 @@
+     return Compatible;
+   }
+ 
++  // For Eero strict enums, allow assignments only if both sides are the same type.
++  // If the expression on the right is overloaded, resolve it with the left's type.
++  if (getLangOptions().Eero && lhsType->isStrictEnumeralType()) {
++    Sema::AssignConvertType result = Incompatible;
++    QualType rhsType = rExpr->getType();
++    if (rhsType->isStrictEnumeralType()) {
++      if (lhsType->getCanonicalTypeUnqualified() == 
++          rhsType->getCanonicalTypeUnqualified()) {
++        result = Compatible;
++      } else {
++        Diag(rExpr->getLocStart(), diag::err_typecheck_cond_incompatible_operands)
++          << lhsType << rhsType << rExpr->getSourceRange();        
++      }
++    } else if (rhsType->isSpecificBuiltinType(BuiltinType::Overload)) {
++      Expr* rhsExpr = ResolveStrictEnumExpr(lhsType, rExpr);
++      if (rhsExpr) {
++        // delete rExpr; // TODO: free up old expression?
++        rExpr = rhsExpr;
++        result = Compatible;
++      }
++    } else {
++      Diag(rExpr->getLocStart(), diag::err_typecheck_cond_incompatible_operands)
++        << lhsType << rhsType << rExpr->getSourceRange();        
++    }
++    return result;
++  }
++
+   // This check seems unnatural, however it is necessary to ensure the proper
+   // conversion of functions/arrays. If the conversion were done for all
+   // DeclExpr's (created by ActOnIdExpression), it would mess up the unary
+@@ -7970,6 +8022,27 @@
+       << lhs->getSourceRange() << rhs->getSourceRange();
+ }
+ 
++// Eero
++static inline std::string ConvertTokenKindToBinarySelectorName(
++  tok::TokenKind Kind, bool& invert) {
++  std::string SelectorName;
++  invert = false;
++  switch (Kind) {
++    case tok::equalequal:     SelectorName = "isEqual"; break;
++    case tok::exclaimequal:   SelectorName = "isEqual"; invert = true; break;
++    case tok::plus:           SelectorName = "plus"; break;
++    case tok::minus:          SelectorName = "minus"; break;
++    case tok::star:           SelectorName = "multipliedBy"; break;
++    case tok::slash:          SelectorName = "dividedBy"; break;
++    case tok::less:           SelectorName = "isLess"; break;
++    case tok::lessequal:      SelectorName = "isGreater"; invert = true; break;      
++    case tok::greater:        SelectorName = "isGreater"; break;
++    case tok::greaterequal:   SelectorName = "isLess"; invert = true; break;
++    default:; // do nothing, leaving SelectorName empty
++  }
++  return SelectorName;
++}
++
+ /// CreateBuiltinBinOp - Creates a new built-in binary operation with
+ /// operator @p Opc at location @c TokLoc. This routine only supports
+ /// built-in operations; ActOnBinOp handles overloaded operators.
+@@ -8276,6 +8349,13 @@
+   assert((lhs != 0) && "ActOnBinOp(): missing left expression");
+   assert((rhs != 0) && "ActOnBinOp(): missing right expression");
+ 
++  if (getLangOptions().Eero) {  
++    ExprResult result = ActOnEeroBinOp(S, TokLoc, Kind, Opc, lhs, rhs);    
++    if (result.isUsable() || result.isInvalid()) {
++      return result;
++    }
++  }
++
+   // Emit warnings for tricky precedence issues, e.g. "bitfield & 0x4 == 0"
+   DiagnoseBinOpPrecedence(*this, Opc, TokLoc, lhs, rhs);
+ 
+@@ -8454,6 +8534,18 @@
+ // Unary Operators.  'Tok' is the token for the operator.
+ ExprResult Sema::ActOnUnaryOp(Scope *S, SourceLocation OpLoc,
+                               tok::TokenKind Op, Expr *Input) {
++  // The only unary operator allowed on an Eero strict enum is getting its
++  // address (&).
++  if (getLangOptions().Eero && 
++      Op != tok::amp && 
++      Input->getType()->isStrictEnumeralType() &&
++      !Input->isEvaluatable(Context)) {
++    return ExprError(Diag(OpLoc, diag::err_ovl_no_oper) <<
++                     Input->getType() << 
++                     UnaryOperator::getOpcodeStr(ConvertTokenKindToUnaryOpcode(Op)) <<
++                     Input->getSourceRange());
++  }
++
+   return BuildUnaryOp(S, OpLoc, ConvertTokenKindToUnaryOpcode(Op), Input);
+ }
+ 
+@@ -9728,3 +9820,109 @@
+   Diag(Loc, diag::err_ovl_unresolvable) << E->getSourceRange();
+   return ExprError();
+ }
++
++// Eero supports limited operator overloading for ObjC objects. It also limits
++// the operators allowed for its strict enums; only assignments and comparisons
++// are allowed. It also supports overloading of strict enum member constants.
++ExprResult Sema::ActOnEeroBinOp(Scope *S, SourceLocation TokLoc,
++                                tok::TokenKind Kind, BinaryOperatorKind Opc,
++                                Expr *lhs, Expr *rhs) {
++  ExprResult result;  
++
++  // If both operands are object instances, perform operator overloading
++  if (lhs->getType()->isObjCObjectPointerType() && 
++      rhs->getType()->isObjCObjectPointerType()) { 
++
++    bool invert;
++    std::string SelName = ConvertTokenKindToBinarySelectorName(Kind, invert);
++    if (!SelName.empty()) {
++      IdentifierInfo &II = PP.getIdentifierTable().getOwn(SelName);      
++      Selector Sel = PP.getSelectorTable().getUnarySelector(&II);
++      if (!Sel.isNull()) {
++        result = ActOnInstanceMessage(S,
++                                      lhs, 
++                                      Sel,
++                                      TokLoc,
++                                      TokLoc,
++                                      TokLoc,
++                                      MultiExprArg(*this,&rhs,1));
++        if (invert) {
++          result = ActOnUnaryOp(S, TokLoc, tok::exclaim, result.take());
++        }
++      }
++    }
++  } else if (lhs->getType()->isSpecificBuiltinType(BuiltinType::Overload) &&
++             rhs->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++
++    Diag(TokLoc, diag::err_ovl_ambiguous_oper_binary) << 
++        BinaryOperator::getOpcodeStr(Opc) << lhs->getSourceRange() << 
++        rhs->getSourceRange();
++    result = ExprError();
++
++  } else if (lhs->getType()->isStrictEnumeralType() ||
++             rhs->getType()->isStrictEnumeralType()) {        
++
++    if (rhs->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++      Expr* rhsExpr = ResolveStrictEnumExpr(lhs->getType(), rhs);
++      if (rhsExpr)
++        result = ActOnBinOp(S, TokLoc, Kind, lhs, rhsExpr);
++    } else if (lhs->getType()->isSpecificBuiltinType(BuiltinType::Overload)) {
++      Expr* lhsExpr = ResolveStrictEnumExpr(rhs->getType(), lhs);
++      if (lhsExpr)
++        result = ActOnBinOp(S, TokLoc, Kind, lhsExpr, rhs);
++    } else {
++      switch (Kind) {
++        case tok::lessequal:
++        case tok::less:
++        case tok::greaterequal:
++        case tok::greater:
++        case tok::exclaimequal:
++        case tok::equalequal:
++        case tok::equal:
++          if (lhs->getType()->getCanonicalTypeUnqualified() != 
++              rhs->getType()->getCanonicalTypeUnqualified()) {
++            Diag(TokLoc, diag::err_typecheck_cond_incompatible_operands) << 
++                 lhs->getType() << rhs->getType() << 
++                 lhs->getSourceRange() << rhs->getSourceRange();
++            result = ExprError();
++          }
++          break;
++        default:
++          if (lhs->getType()->isStrictEnumeralType()) {
++            Diag(TokLoc, diag::err_ovl_no_oper) << 
++                 lhs->getType() << BinaryOperator::getOpcodeStr(Opc) << 
++                 lhs->getSourceRange();            
++          } else {
++            Diag(TokLoc, diag::err_ovl_no_oper) << 
++                 rhs->getType() << BinaryOperator::getOpcodeStr(Opc) << 
++                 rhs->getSourceRange();
++          }
++          result = ExprError();
++      }
++    }
++  }
++  return result;
++}
++
++// For Eero strict enum support of overloaded member constants
++Expr* Sema::ResolveStrictEnumExpr(QualType KnownType, Expr* OverloadedExpr) {
++
++  Expr* resolvedExpr = 0;
++  UnresolvedLookupExpr *ULE = cast<UnresolvedLookupExpr>(OverloadedExpr);
++  for ( UnresolvedSetImpl::iterator it = ULE->decls_begin(); it != ULE->decls_end(); it++ ) {
++    if (isa<EnumConstantDecl>(*it)) {
++      EnumConstantDecl* enumConstDecl = cast<EnumConstantDecl>(*it);
++      QualType resolvedType = enumConstDecl->getType();
++      if (resolvedType == KnownType->getCanonicalTypeUnqualified()) {
++        resolvedExpr = new (Context) DeclRefExpr(enumConstDecl, 
++                                                 resolvedType, 
++                                                 VK_RValue,
++                                                 OverloadedExpr->getLocStart());
++        break;
++      }
++    }
++  }
++  return resolvedExpr;
++}
++
++
+Index: lib/AST/Type.cpp
+===================================================================
+--- lib/AST/Type.cpp	(revision 129311)
++++ lib/AST/Type.cpp	(working copy)
+@@ -564,6 +564,12 @@
+   return false;
+ }
+ 
++bool Type::isStrictEnumeralType() const { // Eero-specific
++  if (const EnumType *ET = dyn_cast<EnumType>(CanonicalType)) {
++    return ET->getDecl()->isStrict();
++  }
++  return false;
++}
+ 
+ bool Type::isBooleanType() const {
+   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+Index: lib/Lex/LiteralSupport.cpp
+===================================================================
+--- lib/Lex/LiteralSupport.cpp	(revision 129311)
++++ lib/Lex/LiteralSupport.cpp	(working copy)
+@@ -926,7 +926,8 @@
+       ++ThisTokBuf;
+     }
+ 
+-    assert(ThisTokBuf[0] == '"' && "Expected quote, lexer broken?");
++    if (!Features.Eero)
++      assert(ThisTokBuf[0] == '"' && "Expected quote, lexer broken?");
+     ++ThisTokBuf;
+ 
+     // Check if this is a pascal string
+Index: lib/Driver/Tools.cpp
+===================================================================
+--- lib/Driver/Tools.cpp	(revision 129311)
++++ lib/Driver/Tools.cpp	(working copy)
+@@ -2061,7 +2061,7 @@
+   case types::TY_C: case types::TY_CHeader:
+   case types::TY_PP_C: case types::TY_PP_CHeader:
+     return "cc1";
+-  case types::TY_ObjC: case types::TY_ObjCHeader:
++  case types::TY_ObjC: case types::TY_Eero: case types::TY_ObjCHeader:
+   case types::TY_PP_ObjC: case types::TY_PP_ObjCHeader:
+     return "cc1obj";
+   case types::TY_CXX: case types::TY_CXXHeader:
+Index: lib/Driver/Types.cpp
+===================================================================
+--- lib/Driver/Types.cpp	(revision 129311)
++++ lib/Driver/Types.cpp	(working copy)
+@@ -78,7 +78,7 @@
+   case TY_Asm:
+   case TY_C: case TY_PP_C:
+   case TY_CL:
+-  case TY_ObjC: case TY_PP_ObjC:
++  case TY_ObjC: case TY_PP_ObjC: case TY_Eero:
+   case TY_CXX: case TY_PP_CXX:
+   case TY_ObjCXX: case TY_PP_ObjCXX:
+   case TY_CHeader: case TY_PP_CHeader:
+@@ -109,7 +109,7 @@
+   default:
+     return false;
+ 
+-  case TY_ObjC: case TY_PP_ObjC:
++  case TY_ObjC: case TY_PP_ObjC: case TY_Eero:
+   case TY_ObjCXX: case TY_PP_ObjCXX:
+   case TY_ObjCHeader: case TY_PP_ObjCHeader:
+   case TY_ObjCXXHeader: case TY_PP_ObjCXXHeader:
+@@ -135,6 +135,7 @@
+            .Case("c", TY_C)
+            .Case("i", TY_PP_C)
+            .Case("m", TY_ObjC)
++           .Case("ero", TY_Eero)
+            .Case("M", TY_ObjCXX)
+            .Case("h", TY_CHeader)
+            .Case("C", TY_CXX)
+Index: lib/Parse/ParseDecl.cpp
+===================================================================
+--- lib/Parse/ParseDecl.cpp	(revision 129311)
++++ lib/Parse/ParseDecl.cpp	(working copy)
+@@ -399,8 +399,9 @@
+ 
+   // C99 6.7.2.3p6: Handle "struct-or-union identifier;", "enum { X };"
+   // declaration-specifiers init-declarator-list[opt] ';'
+-  if (Tok.is(tok::semi)) {
+-    if (RequireSemi) ConsumeToken();
++  if (Tok.is(tok::semi) || 
++      (getLang().Eero && Tok.isAtStartOfLine() && !InSystemHeader(Tok.getLocation()))) {
++    if (Tok.is(tok::semi) && RequireSemi) ConsumeToken();
+     Decl *TheDecl = Actions.ParsedFreeStandingDeclSpec(getCurScope(), AS_none,
+                                                            DS);
+     DS.complete(TheDecl);
+@@ -497,18 +498,22 @@
+   if (DeclEnd)
+     *DeclEnd = Tok.getLocation();
+ 
+-  if (Context != Declarator::ForContext &&
+-      ExpectAndConsume(tok::semi,
+-                       Context == Declarator::FileContext
+-                         ? diag::err_invalid_token_after_toplevel_declarator
+-                         : diag::err_expected_semi_declaration)) {
+-    // Okay, there was no semicolon and one was expected.  If we see a
+-    // declaration specifier, just assume it was missing and continue parsing.
+-    // Otherwise things are very confused and we skip to recover.
+-    if (!isDeclarationSpecifier()) {
+-      SkipUntil(tok::r_brace, true, true);
+-      if (Tok.is(tok::semi))
++  if (Context != Declarator::ForContext) {
++    if (getLang().Eero) {
++      if (Tok.is(tok::semi)) 
+         ConsumeToken();
++    } else if (ExpectAndConsume(tok::semi,
++                                Context == Declarator::FileContext
++                                  ? diag::err_invalid_token_after_toplevel_declarator
++                                  : diag::err_expected_semi_declaration)) {
++      // Okay, there was no semicolon and one was expected.  If we see a
++      // declaration specifier, just assume it was missing and continue parsing.
++      // Otherwise things are very confused and we skip to recover.
++      if (!isDeclarationSpecifier()) {
++        SkipUntil(tok::r_brace, true, true);
++        if (Tok.is(tok::semi))
++          ConsumeToken();
++      }
+     }
+   }
+ 
+@@ -890,6 +895,7 @@
+                                         DeclSpecContext DSContext) {  
+   DS.SetRangeStart(Tok.getLocation());
+   DS.SetRangeEnd(Tok.getLocation());
++  bool firstPass = true;
+   while (1) {
+     bool isInvalid = false;
+     const char *PrevSpec = 0;
+@@ -897,6 +903,16 @@
+ 
+     SourceLocation Loc = Tok.getLocation();
+ 
++    if (getLang().Eero && 
++        !firstPass && 
++        Tok.isAtStartOfLine() && 
++        !InSystemHeader(Loc)) {
++      goto DoneWithDeclSpec; // !!! a goto? !!!
++    }
++
++    if (firstPass)
++      firstPass = false;
++
+     switch (Tok.getKind()) {
+     default:
+     DoneWithDeclSpec:
+@@ -1231,6 +1247,13 @@
+     case tok::kw_typedef:
+       isInvalid = DS.SetStorageClassSpec(DeclSpec::SCS_typedef, Loc, PrevSpec,
+                                          DiagID, getLang());
++      // Eero strict enum declaration "typedef { A, B, C} TypeName"
++      if (getLang().Eero && NextToken().is(tok::l_brace)) {
++        DS.SetRangeEnd(Tok.getLocation());
++        ConsumeToken(); // typedef
++        ParseEnumSpecifier(Loc, DS, TemplateInfo, AS_none, true /*strict*/ );
++        continue;
++      }
+       break;
+     case tok::kw_extern:
+       if (DS.isThreadSpecified())
+@@ -1249,7 +1272,7 @@
+                                          DiagID, getLang());
+       break;
+     case tok::kw_auto:
+-      if (getLang().CPlusPlus0x || getLang().ObjC2) {
++      if (getLang().CPlusPlus0x) {
+         if (isKnownToBeTypeSpecifier(GetLookAheadToken(1))) {
+           isInvalid = DS.SetStorageClassSpec(DeclSpec::SCS_auto, Loc, PrevSpec,
+                                            DiagID, getLang());
+@@ -1905,15 +1928,17 @@
+ 
+     if (Tok.is(tok::semi)) {
+       ConsumeToken();
+-    } else if (Tok.is(tok::r_brace)) {
+-      ExpectAndConsume(tok::semi, diag::ext_expected_semi_decl_list);
+-      break;
+-    } else {
+-      ExpectAndConsume(tok::semi, diag::err_expected_semi_decl_list);
+-      // Skip to end of block or statement to avoid ext-warning on extra ';'.
+-      SkipUntil(tok::r_brace, true, true);
+-      // If we stopped at a ';', eat it.
+-      if (Tok.is(tok::semi)) ConsumeToken();
++    } else if (!getLang().Eero) {
++      if (Tok.is(tok::r_brace)) {
++        ExpectAndConsume(tok::semi, diag::ext_expected_semi_decl_list);
++        break;
++      } else {
++        ExpectAndConsume(tok::semi, diag::err_expected_semi_decl_list);
++        // Skip to end of block or statement to avoid ext-warning on extra ';'.
++        SkipUntil(tok::r_brace, true, true);
++        // If we stopped at a ';', eat it.
++        if (Tok.is(tok::semi)) ConsumeToken();
++      }
+     }
+   }
+ 
+@@ -1929,6 +1954,10 @@
+                       attrs.getList());
+   StructScope.Exit();
+   Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, RBraceLoc);
++
++  if (getLang().Eero && Tok.isAtStartOfLine() && !InSystemHeader(RBraceLoc)) {
++    InsertToken(tok::semi);
++  }
+ }
+ 
+ /// ParseEnumSpecifier
+@@ -1960,7 +1989,7 @@
+ ///
+ void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
+                                 const ParsedTemplateInfo &TemplateInfo,
+-                                AccessSpecifier AS) {
++                                AccessSpecifier AS, bool Strict) {
+   // Parse the tag portion of this.
+   if (Tok.is(tok::code_completion)) {
+     // Code completion for an enum name.
+@@ -2170,7 +2199,7 @@
+   }
+   
+   if (Tok.is(tok::l_brace))
+-    ParseEnumBody(StartLoc, TagDecl);
++    ParseEnumBody(StartLoc, TagDecl, Strict);
+ 
+   // FIXME: The DeclSpec should keep the locations of both the keyword
+   // and the name (if there is one).
+@@ -2189,7 +2218,7 @@
+ ///       enumeration-constant:
+ ///         identifier
+ ///
+-void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
++void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl, bool Strict) {
+   // Enter the scope of the enum body and start the definition.
+   ParseScope EnumScope(this, Scope::DeclScope);
+   Actions.ActOnTagStartDefinition(getCurScope(), EnumDecl);
+@@ -2204,6 +2233,10 @@
+ 
+   Decl *LastEnumConstDecl = 0;
+ 
++  if (getLang().Eero && Strict) {
++    Actions.SetEnumAsStrict(EnumDecl);
++  }
++
+   // Parse the enumerator-list.
+   while (Tok.is(tok::identifier)) {
+     IdentifierInfo *Ident = Tok.getIdentifierInfo();
+@@ -2216,10 +2249,15 @@
+     SourceLocation EqualLoc;
+     ExprResult AssignedVal;
+     if (Tok.is(tok::equal)) {
+-      EqualLoc = ConsumeToken();
+-      AssignedVal = ParseConstantExpression();
+-      if (AssignedVal.isInvalid())
+-        SkipUntil(tok::comma, tok::r_brace, true, true);
++      if (!getLang().Eero || !Strict) { // if a standard enum
++        EqualLoc = ConsumeToken();
++        AssignedVal = ParseConstantExpression();
++        if (AssignedVal.isInvalid())
++          SkipUntil(tok::comma, tok::r_brace, true, true);
++      } else { // not allowed for Eero strict enums
++        Diag(Tok, diag::err_expected_comma);
++        SkipUntil(tok::comma, true, true);
++      }
+     }
+ 
+     // Install the enumerator constant into EnumDecl.
+@@ -2420,6 +2458,11 @@
+       return false;
+     if (TryAltiVecVectorToken())
+       return true;
++    if (getLang().Eero && 
++        (NextToken().is(tok::identifier) &&     // variadic class method call
++         GetLookAheadToken(2).is(tok::colon) || 
++         NextToken().is(tok::colon)))           // empty-selector-name-method call
++      return false; 
+     // Fall through.
+   case tok::kw_typename: // typename T::type
+     // Annotate typenames and C++ scope specifiers.  If we get one, just
+@@ -2453,6 +2496,10 @@
+ 
+     // storage-class-specifier
+   case tok::kw_typedef:
++    if (getLang().Eero && 
++        GetLookAheadToken(1).is(tok::identifier) && 
++        GetLookAheadToken(2).is(tok::ellipsis) && 
++        GetLookAheadToken(3).is(tok::ellipsis) ) {  return false; }
+   case tok::kw_extern:
+   case tok::kw___private_extern__:
+   case tok::kw_static:
+@@ -2937,6 +2984,12 @@
+     goto PastIdentifier;
+   }
+     
++  if (getLang().Eero && 
++      Tok.isAtStartOfLine() && 
++      !InSystemHeader(Tok.getLocation())) {
++    return;
++  }
++
+   if (Tok.is(tok::l_paren)) {
+     // direct-declarator: '(' declarator ')'
+     // direct-declarator: '(' attributes declarator ')'
+@@ -2979,7 +3032,7 @@
+   if (D.getIdentifier())
+     MaybeParseCXX0XAttributes(D);
+ 
+-  while (1) {
++  while (!getLang().Eero || !Tok.isAtStartOfLine() || InSystemHeader(Tok.getLocation())) {
+     if (Tok.is(tok::l_paren)) {
+       // The paren may be part of a C++ direct initializer, eg. "int x(1);".
+       // In such a case, check if we actually have a function declarator; if it
+Index: lib/Parse/ParseObjc.cpp
+===================================================================
+--- lib/Parse/ParseObjc.cpp	(revision 129311)
++++ lib/Parse/ParseObjc.cpp	(working copy)
+@@ -92,7 +92,7 @@
+   }
+ 
+   // Consume the ';'.
+-  if (ExpectAndConsume(tok::semi, diag::err_expected_semi_after, "@class"))
++  if (!getLang().Eero && ExpectAndConsume(tok::semi, diag::err_expected_semi_after, "@class"))
+     return 0;
+ 
+   return Actions.ActOnForwardClassDeclaration(atLoc, ClassNames.data(),
+@@ -325,14 +325,23 @@
+ 
+   while (1) {
+     // If this is a method prototype, parse it.
+-    if (Tok.is(tok::minus) || Tok.is(tok::plus)) {
++    if ((Tok.is(tok::minus) || Tok.is(tok::plus)) ||
++        (getLang().Eero && 
++         Tok.getObjCKeywordID() == tok::objc_not_keyword &&
++         (Tok.is(tok::identifier) || 
++          Tok.is(tok::kw_static) || 
++          Tok.is(tok::colon)))   ) {
+       Decl *methodPrototype =
+         ParseObjCMethodPrototype(interfaceDecl, MethodImplKind);
+       allMethods.push_back(methodPrototype);
+       // Consume the ';' here, since ParseObjCMethodPrototype() is re-used for
+       // method definitions.
+-      ExpectAndConsume(tok::semi, diag::err_expected_semi_after_method_proto,
+-                       "", tok::semi);
++      if (!getLang().Eero) {
++        ExpectAndConsume(tok::semi, diag::err_expected_semi_after_method_proto,
++                         "", tok::semi);
++      } else if (Tok.is(tok::semi)) {
++        ConsumeToken();
++      }
+       continue;
+     }
+     if (Tok.is(tok::l_paren)) {
+@@ -361,23 +370,30 @@
+       ConsumeCodeCompletionToken();
+     }
+     
+-    // If we don't have an @ directive, parse it as a function definition.
+-    if (Tok.isNot(tok::at)) {
+-      // The code below does not consume '}'s because it is afraid of eating the
+-      // end of a namespace.  Because of the way this code is structured, an
+-      // erroneous r_brace would cause an infinite loop if not handled here.
+-      if (Tok.is(tok::r_brace))
+-        break;
++    if (!getLang().Eero || InSystemHeader(Tok.getLocation())) {
++      // If we don't have an @ directive, parse it as a function definition.
++      if (Tok.isNot(tok::at)) {
++        // The code below does not consume '}'s because it is afraid of eating the
++        // end of a namespace.  Because of the way this code is structured, an
++        // erroneous r_brace would cause an infinite loop if not handled here.
++        if (Tok.is(tok::r_brace))
++          break;
+ 
+-      // FIXME: as the name implies, this rule allows function definitions.
+-      // We could pass a flag or check for functions during semantic analysis.
+-      ParsedAttributes attrs;
+-      allTUVariables.push_back(ParseDeclarationOrFunctionDefinition(attrs));
+-      continue;
++        // FIXME: as the name implies, this rule allows function definitions.
++        // We could pass a flag or check for functions during semantic analysis.
++        ParsedAttributes attrs;
++        allTUVariables.push_back(ParseDeclarationOrFunctionDefinition(attrs));
++        continue;
++      }
+     }
+ 
+-    // Otherwise, we have an @ directive, eat the @.
+-    SourceLocation AtLoc = ConsumeToken(); // the "@"
++    // Otherwise, we have an @ directive, eat the @ (not required for Eero)
++    SourceLocation AtLoc;
++    if (Tok.is(tok::at)) {
++      AtLoc = ConsumeToken(); // the "@"
++    } else {
++      AtLoc = Tok.getLocation();
++    }
+     if (Tok.is(tok::code_completion)) {
+       Actions.CodeCompleteObjCAtDirective(getCurScope(), ObjCImpDecl, true);
+       ConsumeCodeCompletionToken();
+@@ -442,8 +458,12 @@
+       DeclSpec DS;
+       ParseStructDeclaration(DS, Callback);
+ 
+-      ExpectAndConsume(tok::semi, diag::err_expected_semi_decl_list, "",
+-                       tok::at);
++      if (!getLang().Eero) {
++        ExpectAndConsume(tok::semi, diag::err_expected_semi_decl_list, "",
++                         tok::at);
++      } else if (Tok.is(tok::semi)) {
++        ConsumeToken();
++      }  
+       break;
+     }
+   }
+@@ -583,10 +603,18 @@
+ ///
+ Decl *Parser::ParseObjCMethodPrototype(Decl *IDecl,
+                                        tok::ObjCKeywordKind MethodImplKind) {
+-  assert((Tok.is(tok::minus) || Tok.is(tok::plus)) && "expected +/-");
++  if (!getLang().Eero)
++    assert((Tok.is(tok::minus) || Tok.is(tok::plus)) && "expected +/-");
+ 
+-  tok::TokenKind methodType = Tok.getKind();
+-  SourceLocation mLoc = ConsumeToken();
++  tok::TokenKind methodType;
++  SourceLocation mLoc;  
++  if (!getLang().Eero || Tok.is(tok::minus) || Tok.is(tok::plus)) {
++    methodType = Tok.getKind();
++    mLoc = ConsumeToken();
++  } else {
++    methodType = tok::unknown;
++    mLoc = Tok.getLocation();
++  }
+   Decl *MDecl = ParseObjCMethodDecl(mLoc, methodType, IDecl,MethodImplKind);
+   // Since this rule is used for both method declarations and definitions,
+   // the caller is (optionally) responsible for consuming the ';'.
+@@ -761,11 +789,17 @@
+ ///     '(' objc-type-qualifiers[opt] ')'
+ ///
+ ParsedType Parser::ParseObjCTypeName(ObjCDeclSpec &DS, bool IsParameter) {
+-  assert(Tok.is(tok::l_paren) && "expected (");
++  if (!getLang().Eero)
++    assert(Tok.is(tok::l_paren) && "expected (");
+ 
+-  SourceLocation LParenLoc = ConsumeParen();
++  SourceLocation LParenLoc;
+   SourceLocation TypeStartLoc = Tok.getLocation();
+ 
++  // Eero support for ObjC prototypes (for header compatibility)
++  if (Tok.is(tok::l_paren)) { 
++    LParenLoc = ConsumeParen();
++  }
++
+   // Parse type qualifiers, in, inout, etc.
+   ParseObjCTypeQualifierList(DS, IsParameter);
+ 
+@@ -776,20 +810,67 @@
+       Ty = TypeSpec.get();
+   }
+ 
+-  if (Tok.is(tok::r_paren))
+-    ConsumeParen();
+-  else if (Tok.getLocation() == TypeStartLoc) {
+-    // If we didn't eat any tokens, then this isn't a type.
+-    Diag(Tok, diag::err_expected_type);
+-    SkipUntil(tok::r_paren);
+-  } else {
+-    // Otherwise, we found *something*, but didn't get a ')' in the right
+-    // place.  Emit an error then return what we have as the type.
+-    MatchRHSPunctuation(tok::r_paren, LParenLoc);
++  if ( LParenLoc.isValid() ) {
++    if (Tok.is(tok::r_paren))
++      ConsumeParen();
++    else if (Tok.getLocation() == TypeStartLoc) {
++      // If we didn't eat any tokens, then this isn't a type.
++      Diag(Tok, diag::err_expected_type);
++      SkipUntil(tok::r_paren);
++    } else {
++      // Otherwise, we found *something*, but didn't get a ')' in the right
++      // place.  Emit an error then return what we have as the type.
++      MatchRHSPunctuation(tok::r_paren, LParenLoc);
++    }
++  } else if (Ty == 0) {
++    Diag(TypeStartLoc, diag::err_expected_type);
+   }
+   return Ty;
+ }
+ 
++/// Eero helper function which derives a variable name from a camel case 
++/// selector name (full name begins with lowercase characters, new 
++/// words start with uppercase characters).
++/// The variable name construction rules are: 
++///   1) If the selector name contains words separated by camel case, then the
++///      last word (scanning left to right), converted entirely to lowercase, is used.
++///   2) The first camel case word containing two consecutive uppercase characters
++///      encountered (scanning left to right) is used, along with all subsequent 
++///      words; no character cases are modified.
++///   3) If no uppercase characters are encountered, the entire selector name is used.
++///   4) If the first character in the selector name is uppercase, the entire selector 
++///      name is used.
++///
++/// Examples:
++///   1) Selector name "initWithString" results in variable name "string"
++///   2) Selector name "initWithUTF8String" results in variable name "UTF8String"
++///   3) Selector name "compare" results in variable name "compare"
++///   4) Selector name "CreateNewString" results in variable name "CreateNewString"
++///
++static std::string NameFromCamelCase(const std::string& aName)
++{
++  std::string name(aName);
++  size_t pos(std::string::npos);
++  bool changeCase(true);
++  
++  for (size_t i=0; i < name.length(); i++) {          
++    if (isupper(name[i])) {
++      if (i == pos + 1) {  // two consecutive uppercase chars (or if name begins with uppercase)
++        changeCase = false;
++        break;
++      } else {
++        pos = i;
++      }
++    }
++  }
++  if (pos != std::string::npos) {
++    if (changeCase)
++      name[pos] = tolower(name[pos]);
++    name = name.substr(pos);
++  }
++  return name;
++}
++
+ ///   objc-method-decl:
+ ///     objc-selector
+ ///     objc-keyword-selector objc-parmlist[opt]
+@@ -824,17 +905,32 @@
+                                   tok::ObjCKeywordKind MethodImplKind) {
+   ParsingDeclRAIIObject PD(*this);
+ 
++  bool objcSyntax(true);
++  if (getLang().Eero && mType == tok::unknown) {    
++    objcSyntax = false;
++    if (Tok.is(tok::kw_static)) {
++      ConsumeToken();
++      mType = tok::plus;
++    } else {
++      mType = tok::minus;
++    }
++  }
++
+   if (Tok.is(tok::code_completion)) {
+     Actions.CodeCompleteObjCMethodDecl(getCurScope(), mType == tok::minus, 
+                                        /*ReturnType=*/ ParsedType(), IDecl);
+     ConsumeCodeCompletionToken();
+   }
+ 
+-  // Parse the return type if present.
+   ParsedType ReturnType;
+   ObjCDeclSpec DSRet;
+-  if (Tok.is(tok::l_paren))
++  if (objcSyntax) { // Parse the return type if present.
++    if (Tok.is(tok::l_paren))
++      ReturnType = ParseObjCTypeName(DSRet, false);
++  } else { // Eero return type defaults to void    
++    InsertToken(tok::kw_void); // look into a cleaner way to do this
+     ReturnType = ParseObjCTypeName(DSRet, false);
++  }
+ 
+   // If attributes exist before the method, parse them.
+   ParsedAttributes attrs;
+@@ -852,16 +948,41 @@
+   IdentifierInfo *SelIdent = ParseObjCSelectorPiece(selLoc);
+ 
+   // An unnamed colon is valid.
+-  if (!SelIdent && Tok.isNot(tok::colon)) { // missing selector name.
+-    Diag(Tok, diag::err_expected_selector_for_method)
++  if (!SelIdent) { // missing selector name.
++    if (Tok.isNot(tok::colon)) {
++      Diag(Tok, diag::err_expected_selector_for_method)
+       << SourceRange(mLoc, Tok.getLocation());
+-    // Skip until we get a ; or {}.
+-    SkipUntil(tok::r_brace);
+-    return 0;
++      // Skip until we get a ; or {}.
++      SkipUntil(tok::r_brace);
++      return 0;
++    } else if (!objcSyntax) {
++      ConsumeToken();
++    }
+   }
+ 
++  bool doneParsing = false;  
++  if (objcSyntax) {
++    if (Tok.isNot(tok::colon)) {
++      doneParsing = true;
++    }
++  } else { // Eero syntax
++    if (Tok.isAtStartOfLine() || Tok.is(tok::kw___attribute)) {
++      doneParsing = true;
++    } else if (Tok.is(tok::comma) && NextToken().is(tok::kw_return)) {
++      doneParsing = true;
++      ConsumeToken(); // comma
++      SourceLocation retLoc = ConsumeToken(); // return
++      if (Tok.isAtStartOfLine()) {
++        Diag(PP.getLocForEndOfToken(retLoc), diag::err_expected_type);
++        SkipUntil(tok::semi);
++      } else {
++        ReturnType = ParseObjCTypeName(DSRet, false);
++      }
++    }
++  }
++
+   llvm::SmallVector<DeclaratorChunk::ParamInfo, 8> CParamInfo;
+-  if (Tok.isNot(tok::colon)) {
++  if (doneParsing) {
+     // If attributes exist after the method, parse them.
+     if (getLang().ObjC2)
+       MaybeParseGNUAttributes(attrs);
+@@ -879,23 +1000,55 @@
+ 
+   llvm::SmallVector<IdentifierInfo *, 12> KeyIdents;
+   llvm::SmallVector<Sema::ObjCArgInfo, 12> ArgInfos;
++  bool isVariadic = false;
+   ParseScope PrototypeScope(this,
+                             Scope::FunctionPrototypeScope|Scope::DeclScope);
+   
+   while (1) {
+     Sema::ObjCArgInfo ArgInfo;
++    ArgInfo.Type = ParsedType();
++    ArgInfo.Name = 0;
++    SourceLocation argTypeLoc;
+ 
+     // Each iteration parses a single keyword argument.
+-    if (Tok.isNot(tok::colon)) {
+-      Diag(Tok, diag::err_expected_colon);
+-      break;
++    if (objcSyntax) {
++      if (Tok.isNot(tok::colon)) {
++        Diag(Tok, diag::err_expected_colon);
++        break;
++      }
++      ConsumeToken(); // Eat the ':'.
++
++      if (Tok.is(tok::l_paren)) // Parse the argument type if present.
++        ArgInfo.Type = ParseObjCTypeName(ArgInfo.DeclSpec, true);
++
++    } else { // Eero syntax
++      if (Tok.is(tok::pipe)) { // a variable name has been specified
++        ConsumeToken(); // "|"
++        ArgInfo.Name = Tok.getIdentifierInfo();
++        ArgInfo.NameLoc = ConsumeToken(); // Eat the arg name identifier
++      }      
++      // Parse the argument type
++      if (Tok.is(tok::identifier) || isTypeSpecifierQualifier()) {
++        if (!SelIdent || !Tok.isAtStartOfLine()) {
++          argTypeLoc = Tok.getLocation();
++          ArgInfo.Type = ParseObjCTypeName(ArgInfo.DeclSpec, true);
++        }
++      } else if (Tok.is(tok::comma) || Tok.is(tok::pipe) || Tok.isAtStartOfLine()) {
++        // If there is no type present to parse, which actually means
++        // no selector, make the selector empty and use the parsed 
++        // selector's identifier for the type.
++        if (SelIdent) { 
++          ArgInfo.Type = Actions.getTypeName(*SelIdent, selLoc, getCurScope());
++          SelIdent = 0;
++        }
++      }
++      if (ArgInfo.Type == 0) {
++        Diag(PP.getLocForEndOfToken(selLoc), diag::err_expected_type);
++        SkipUntil(tok::semi);
++        break;
++      }
+     }
+-    ConsumeToken(); // Eat the ':'.
+ 
+-    ArgInfo.Type = ParsedType();
+-    if (Tok.is(tok::l_paren)) // Parse the argument type if present.
+-      ArgInfo.Type = ParseObjCTypeName(ArgInfo.DeclSpec, true);
+-
+     // If attributes exist before the argument name, parse them.
+     ArgInfo.ArgAttrs = 0;
+     if (getLang().ObjC2) {
+@@ -917,19 +1070,72 @@
+       KeyIdents.pop_back();
+       break;
+     }
+-    
+-    if (Tok.isNot(tok::identifier)) {
+-      Diag(Tok, diag::err_expected_ident); // missing argument name.
+-      break;
++
++    if (objcSyntax) {
++      if (Tok.isNot(tok::identifier)) {
++        Diag(Tok, diag::err_expected_ident); // missing argument name.
++        break;
++      }
++      ArgInfo.Name = Tok.getIdentifierInfo();
++      ArgInfo.NameLoc = Tok.getLocation();
++      ConsumeToken(); // Eat the identifier.
++      
++    } else { // Eero syntax
++      doneParsing = true;
++      if (ArgInfo.Name == 0) { // variable name not already defined
++        if (Tok.is(tok::pipe)) { // a variable name has been specified
++          ConsumeToken(); // "|"
++          ArgInfo.Name = Tok.getIdentifierInfo();
++          ArgInfo.NameLoc = ConsumeToken(); // Eat the arg name identifier
++        } else {
++          if (!SelIdent) { // if empty selector
++            ArgInfo.Name = &PP.getIdentifierTable().get("unnamed");
++          } else if (KeyIdents.empty()) { // if first selector (method name),
++            ArgInfo.Name =                // derive arg name from it
++              &PP.getIdentifierTable().get(NameFromCamelCase(SelIdent->getName()));
++          } else { // use entire selector name
++            ArgInfo.Name = SelIdent;
++          }
++          ArgInfo.NameLoc = argTypeLoc;
++        }
++      }
++      
++      if (Tok.is(tok::comma)) {
++        ConsumeToken(); // Eat the ','.
++        doneParsing = false;
++      }
++      if (Tok.is(tok::ellipsis)) {
++        if (doneParsing)
++          Diag(Tok, diag::err_expected_comma);
++        else {      
++          isVariadic = true;
++          ConsumeToken();
++          if (Tok.is(tok::comma)) {
++            ConsumeToken(); // Eat the ','.
++            doneParsing = false;
++          } else {
++            doneParsing = true;
++          }
++        }
++      }
++      if (!doneParsing && Tok.is(tok::kw_return)) {
++        doneParsing = true;
++        SourceLocation retLoc = ConsumeToken(); // Eat the 'return'
++        if (Tok.isAtStartOfLine()) {
++          Diag(PP.getLocForEndOfToken(retLoc), diag::err_expected_type);
++          SkipUntil(tok::semi);
++        } else {
++          ReturnType = ParseObjCTypeName(DSRet, false);
++        }
++      }
+     }
+ 
+-    ArgInfo.Name = Tok.getIdentifierInfo();
+-    ArgInfo.NameLoc = Tok.getLocation();
+-    ConsumeToken(); // Eat the identifier.
+-
+     ArgInfos.push_back(ArgInfo);
+     KeyIdents.push_back(SelIdent);
+ 
++    if (doneParsing)
++      break;
++    
+     // Code completion for the next piece of the selector.
+     if (Tok.is(tok::code_completion)) {
+       ConsumeCodeCompletionToken();
+@@ -943,15 +1149,28 @@
+     }
+     
+     // Check for another keyword selector.
+-    SourceLocation Loc;
+-    SelIdent = ParseObjCSelectorPiece(Loc);
+-    if (!SelIdent && Tok.isNot(tok::colon))
+-      break;
++    if (objcSyntax) {
++      SourceLocation Loc;
++      SelIdent = ParseObjCSelectorPiece(Loc);
++      if (!SelIdent && Tok.isNot(tok::colon))
++        break;
++    } else { // Eero syntax      
++      if (Tok.is(tok::identifier)) {
++        SelIdent = ParseObjCSelectorPiece(selLoc);
++        if (!SelIdent) { // it was an empty colon or a bad selector
++          Diag(Tok, diag::err_expected_ident); // missing selector name.
++          break;
++        }
++      } else { // probably an unnamed selector       
++        if (Tok.is(tok::colon)) { // colon optional in Eero, but consume if present
++          ConsumeToken(); // ":"
++        }
++        SelIdent = 0;
++      }
++    }
+     // We have a selector or a colon, continue parsing.
+   }
+ 
+-  bool isVariadic = false;
+-
+   // Parse the (optional) parameter list.
+   while (Tok.is(tok::comma)) {
+     ConsumeToken();
+@@ -1113,14 +1332,20 @@
+     }
+ 
+     // Set the default visibility to private.
++    bool foundAtKeyword(false);
+     if (Tok.is(tok::at)) { // parse objc-visibility-spec
+       ConsumeToken(); // eat the @ sign
+-      
++      foundAtKeyword = true;
+       if (Tok.is(tok::code_completion)) {
+         Actions.CodeCompleteObjCAtVisibility(getCurScope());
+         ConsumeCodeCompletionToken();
+       }
++    }
+       
++    if (foundAtKeyword || 
++        (getLang().Eero && 
++         Tok.getObjCKeywordID() != tok::objc_not_keyword)) { // it is an objc keyword
++
+       switch (Tok.getObjCKeywordID()) {
+       case tok::objc_private:
+       case tok::objc_public:
+@@ -1131,6 +1356,7 @@
+         continue;
+       default:
+         Diag(Tok, diag::err_objc_illegal_visibility_spec);
++        SkipUntil(tok::r_brace);
+         continue;
+       }
+     }
+@@ -1170,7 +1396,7 @@
+ 
+     if (Tok.is(tok::semi)) {
+       ConsumeToken();
+-    } else {
++    } else if (!getLang().Eero) {
+       Diag(Tok, diag::err_expected_semi_decl_list);
+       // Skip to end of block or statement
+       SkipUntil(tok::r_brace, true, true);
+@@ -1470,7 +1696,11 @@
+       break;
+     ConsumeToken(); // consume ','
+   }
+-  ExpectAndConsume(tok::semi, diag::err_expected_semi_after, "@synthesize");
++  if (!getLang().Eero) {
++    ExpectAndConsume(tok::semi, diag::err_expected_semi_after, "@synthesize");
++  } else if (Tok.is(tok::semi)) {
++    ConsumeToken(); // consume optional ';'
++  }
+   return 0;
+ }
+ 
+@@ -1534,24 +1764,35 @@
+ StmtResult
+ Parser::ParseObjCSynchronizedStmt(SourceLocation atLoc) {
+   ConsumeToken(); // consume synchronized
+-  if (Tok.isNot(tok::l_paren)) {
++  if (!getLang().Eero && Tok.isNot(tok::l_paren)) {
+     Diag(Tok, diag::err_expected_lparen_after) << "@synchronized";
+     return StmtError();
+   }
+-  ConsumeParen();  // '('
++  SourceLocation LParenLoc;
++  if (Tok.is(tok::l_paren))
++    LParenLoc = ConsumeParen();  // '('
+   ExprResult Res(ParseExpression());
+   if (Res.isInvalid()) {
+     SkipUntil(tok::semi);
+     return StmtError();
+   }
+-  if (Tok.isNot(tok::r_paren)) {
+-    Diag(Tok, diag::err_expected_lbrace);
+-    return StmtError();
++
++  if (LParenLoc.isValid()) {
++    if (Tok.is(tok::r_paren)) {
++      ConsumeParen();  // ')'
++    } else {
++      Diag(Tok, diag::err_expected_lbrace);
++      return StmtError();
++    }
+   }
+-  ConsumeParen();  // ')'
++
+   if (Tok.isNot(tok::l_brace)) {
+-    Diag(Tok, diag::err_expected_lbrace);
+-    return StmtError();
++    if (!getLang().Eero) {
++      Diag(Tok, diag::err_expected_lbrace);
++      return StmtError();
++    } else { // it's easiest if we just inject an opening brace
++      InsertToken(tok::l_brace);
++    }
+   }
+   // Enter a scope to hold everything within the compound stmt.  Compound
+   // statements can always hold declarations.
+@@ -1581,8 +1822,12 @@
+ 
+   ConsumeToken(); // consume try
+   if (Tok.isNot(tok::l_brace)) {
+-    Diag(Tok, diag::err_expected_lbrace);
+-    return StmtError();
++    if (!getLang().Eero) {
++      Diag(Tok, diag::err_expected_lbrace);
++      return StmtError();
++    } else { // it's easiest if we just inject an opening brace      
++      InsertToken(tok::l_brace);
++    }
+   }
+   StmtVector CatchStmts(Actions);
+   StmtResult FinallyStmt;
+@@ -1592,21 +1837,30 @@
+   if (TryBody.isInvalid())
+     TryBody = Actions.ActOnNullStmt(Tok.getLocation());
+ 
+-  while (Tok.is(tok::at)) {
++  while (Tok.is(tok::at) || 
++         (getLang().Eero && 
++          (Tok.isObjCAtKeyword(tok::objc_catch) || 
++           Tok.isObjCAtKeyword(tok::objc_finally)))) {
+     // At this point, we need to lookahead to determine if this @ is the start
+     // of an @catch or @finally.  We don't want to consume the @ token if this
+     // is an @try or @encode or something else.
+-    Token AfterAt = GetLookAheadToken(1);
+-    if (!AfterAt.isObjCAtKeyword(tok::objc_catch) &&
+-        !AfterAt.isObjCAtKeyword(tok::objc_finally))
+-      break;
+-
+-    SourceLocation AtCatchFinallyLoc = ConsumeToken();
++    SourceLocation AtCatchFinallyLoc;
++    if (!getLang().Eero || Tok.is(tok::at)) {
++      Token AfterAt = GetLookAheadToken(1);
++      if (!AfterAt.isObjCAtKeyword(tok::objc_catch) &&
++          !AfterAt.isObjCAtKeyword(tok::objc_finally))
++        break;
++      AtCatchFinallyLoc = ConsumeToken();
++    } else {
++      AtCatchFinallyLoc = Tok.getLocation();
++    }
+     if (Tok.isObjCAtKeyword(tok::objc_catch)) {
+       Decl *FirstPart = 0;
+       ConsumeToken(); // consume catch
+-      if (Tok.is(tok::l_paren)) {
+-        ConsumeParen();
++      if (Tok.is(tok::l_paren) || getLang().Eero) {
++        SourceLocation LParenLoc;
++        if (Tok.is(tok::l_paren))
++          LParenLoc = ConsumeParen();
+         ParseScope CatchScope(this, Scope::DeclScope|Scope::AtCatchScope);
+         if (Tok.isNot(tok::ellipsis)) {
+           DeclSpec DS;
+@@ -1627,10 +1881,12 @@
+ 
+         if (Tok.is(tok::r_paren))
+           RParenLoc = ConsumeParen();
+-        else // Skip over garbage, until we get to ')'.  Eat the ')'.
++        else if (LParenLoc.isValid()) // Skip over garbage, until we get to ')'.  Eat the ')'.
+           SkipUntil(tok::r_paren, true, false);
+ 
+         StmtResult CatchBody(true);
++        if (getLang().Eero)
++          InsertToken(tok::l_brace);
+         if (Tok.is(tok::l_brace))
+           CatchBody = ParseCompoundStatementBody();
+         else
+@@ -1657,6 +1913,8 @@
+       ParseScope FinallyScope(this, Scope::DeclScope);
+ 
+       StmtResult FinallyBody(true);
++      if (getLang().Eero)
++        InsertToken(tok::l_brace);
+       if (Tok.is(tok::l_brace))
+         FinallyBody = ParseCompoundStatementBody();
+       else
+@@ -1696,6 +1954,10 @@
+     ConsumeToken();
+   }
+ 
++  if (getLang().Eero) { // it's easiest if we just inject an opening brace
++    InsertToken(tok::l_brace);
++  }
++
+   // We should have an opening brace now.
+   if (Tok.isNot(tok::l_brace)) {
+     Diag(Tok, diag::err_expected_method_body);
+@@ -1934,9 +2196,15 @@
+ ///     type-name
+ ///
+ ExprResult Parser::ParseObjCMessageExpression() {
+-  assert(Tok.is(tok::l_square) && "'[' expected");
+-  SourceLocation LBracLoc = ConsumeBracket(); // consume '['
+-
++  if (!getLang().Eero) {
++    assert(Tok.is(tok::l_square) && "'[' expected");
++  }
++  SourceLocation LBracLoc;
++  if (Tok.is(tok::l_square)) { // first level brackets are optional for Eero
++    LBracLoc = ConsumeBracket(); // consume '['
++  } else {
++    LBracLoc = Tok.getLocation();
++  }
+   if (Tok.is(tok::code_completion)) {
+     Actions.CodeCompleteObjCMessageReceiver(getCurScope());
+     ConsumeCodeCompletionToken();
+@@ -2083,21 +2351,47 @@
+   llvm::SmallVector<IdentifierInfo *, 12> KeyIdents;
+   ExprVector KeyExprs(Actions);
+ 
++  bool parseArguments = false;
++
+   if (Tok.is(tok::colon)) {
++    parseArguments = true;
++    if (getLang().Eero && !selIdent) {
++      ConsumeToken(); // ":"
++    }
++  } else if (getLang().Eero &&
++             selIdent && 
++             !Tok.isAtStartOfLine() &&
++             (Tok.is(tok::identifier) || 
++              Tok.is(tok::numeric_constant) || 
++              Tok.is(tok::char_constant) || 
++              Tok.is(tok::string_literal) || 
++              Tok.is(tok::wide_string_literal) || 
++              Tok.is(tok::l_square)|| 
++              Tok.is(tok::l_paren))) {
++    parseArguments = true;
++  }   
++
++  bool variadicArguments = false;
++  if (parseArguments) {
+     while (1) {
+       // Each iteration parses a single keyword argument.
+       KeyIdents.push_back(selIdent);
+ 
+-      if (Tok.isNot(tok::colon)) {
+-        Diag(Tok, diag::err_expected_colon);
+-        // We must manually skip to a ']', otherwise the expression skipper will
+-        // stop at the ']' when it skips to the ';'.  We want it to skip beyond
+-        // the enclosing expression.
+-        SkipUntil(tok::r_square);
+-        return ExprError();
++      if (!getLang().Eero) { 
++        if (Tok.isNot(tok::colon)) {
++          Diag(Tok, diag::err_expected_colon);
++          // We must manually skip to a ']', otherwise the expression skipper will
++          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
++          // the enclosing expression.
++          SkipUntil(tok::r_square);
++          return ExprError();
++        }
++        ConsumeToken(); // Eat the ':'.
++      } else if (Tok.is(tok::colon)) { // for Eero, colon indicates variadic args
++        ConsumeToken(); // Eat the ':'.
++        variadicArguments = true;
+       }
+ 
+-      ConsumeToken(); // Eat the ':'.
+       ///  Parse the expression after ':'
+       
+       if (Tok.is(tok::code_completion)) {
+@@ -2155,12 +2449,27 @@
+         SkipUntil(tok::r_square);
+         return ExprError();
+       }
+-            
+-      // Check for another keyword selector.
+-      selIdent = ParseObjCSelectorPiece(Loc);
+-      if (!selIdent && Tok.isNot(tok::colon))
+-        break;
+-      // We have a selector or a colon, continue parsing.
++      
++      if (!getLang().Eero) {      
++        // Check for another keyword selector.
++        selIdent = ParseObjCSelectorPiece(Loc);
++        if (!selIdent && Tok.isNot(tok::colon))
++          break;
++        // We have a selector or a colon, continue parsing.
++      } else { // Eero
++        if (!variadicArguments && Tok.is(tok::comma)) { // eat the comma and keep going
++          ConsumeToken(); 
++        } else {
++          break;
++        }
++        if (Tok.is(tok::identifier) && 
++            (NextToken().isNot(tok::comma) && !NextToken().isAtStartOfLine())) {
++          selIdent = ParseObjCSelectorPiece(Loc);
++        } else { // unnamed selector (parameter), loop to parse argument
++          selIdent = 0;
++          Loc = Tok.getLocation();
++        } 
++      }
+     }
+     // Parse the, optional, argument list, comma separated.
+     while (Tok.is(tok::comma)) {
+@@ -2187,21 +2496,34 @@
+     SkipUntil(tok::r_square);
+     return ExprError();
+   }
+-    
+-  if (Tok.isNot(tok::r_square)) {
+-    if (Tok.is(tok::identifier))
+-      Diag(Tok, diag::err_expected_colon);
+-    else
+-      Diag(Tok, diag::err_expected_rsquare);
+-    // We must manually skip to a ']', otherwise the expression skipper will
+-    // stop at the ']' when it skips to the ';'.  We want it to skip beyond
+-    // the enclosing expression.
+-    SkipUntil(tok::r_square);
+-    return ExprError();
++
++  SourceLocation RBracLoc;
++
++  if (!getLang().Eero) {
++    if (Tok.isNot(tok::r_square)) {
++      if (Tok.is(tok::identifier))
++        Diag(Tok, diag::err_expected_colon);
++      else
++        Diag(Tok, diag::err_expected_rsquare);
++      // We must manually skip to a ']', otherwise the expression skipper will
++      // stop at the ']' when it skips to the ';'.  We want it to skip beyond
++      // the enclosing expression.
++      SkipUntil(tok::r_square);
++      return ExprError();
++    }
++    RBracLoc = ConsumeBracket(); // consume ']'
++  } else {  
++    if (BracketCount == InferredBracketOffset) { // close inferred bracket
++      BracketCount = 0;
++    } else if (BracketCount != 0) {
++      RBracLoc = MatchRHSPunctuation(tok::r_square, LBracLoc);
++    }    
++    if (variadicArguments) { // Eero automatically adds a nil/NULL to the end      
++      ExprResult nilArg = Actions.ActOnGNUNullExpr(SourceLocation());
++      KeyExprs.push_back(nilArg.release());
++    }
+   }
+ 
+-  SourceLocation RBracLoc = ConsumeBracket(); // consume ']'
+-
+   unsigned nKeys = KeyIdents.size();
+   if (nKeys == 0)
+     KeyIdents.push_back(selIdent);
+@@ -2364,3 +2686,20 @@
+   return Owned(Actions.ParseObjCSelectorExpression(Sel, AtLoc, SelectorLoc,
+                                                    LParenLoc, RParenLoc));
+  }
++
++/// \brief Parse Eero "typedef XX... ..." namespace-like prefixes.
++///
++ExprResult
++Parser::ParsePrefixTypedef(SourceLocation TypedefLoc) {
++  IdentifierInfo* prefixIdentInfo = Tok.getIdentifierInfo();
++  SourceLocation prefixLoc = ConsumeToken();
++  ConsumeToken(); // ellipsis
++  ConsumeToken(); // ellipsis
++
++  Actions.ActOnPrefixTypedef(getCurScope(),
++                             TypedefLoc,
++                             prefixLoc,
++                             prefixIdentInfo);
++  return ExprEmpty();
++}
++
+Index: lib/Parse/ParseExpr.cpp
+===================================================================
+--- lib/Parse/ParseExpr.cpp	(revision 129311)
++++ lib/Parse/ParseExpr.cpp	(working copy)
+@@ -175,8 +175,8 @@
+ ///         assignment-expression ...[opt]
+ ///         expression ',' assignment-expression ...[opt]
+ ///
+-ExprResult Parser::ParseExpression() {
+-  ExprResult LHS(ParseAssignmentExpression());
++ExprResult Parser::ParseExpression(bool isInParens) {
++  ExprResult LHS(ParseAssignmentExpression(isInParens));
+   return ParseRHSOfBinaryExpression(move(LHS), prec::Comma);
+ }
+ 
+@@ -213,7 +213,7 @@
+ 
+ /// ParseAssignmentExpression - Parse an expr that doesn't include commas.
+ ///
+-ExprResult Parser::ParseAssignmentExpression() {
++ExprResult Parser::ParseAssignmentExpression(bool isInParens) {
+   if (Tok.is(tok::code_completion)) {
+     Actions.CodeCompleteOrdinaryName(getCurScope(), Sema::PCC_Expression);
+     ConsumeCodeCompletionToken();
+@@ -223,6 +223,12 @@
+     return ParseThrowExpression();
+ 
+   ExprResult LHS(ParseCastExpression(false));
++
++  if (getLang().Eero && !isInParens &&  
++      Tok.isAtStartOfLine() && !InSystemHeader(Tok.getLocation())) {
++    InsertToken(tok::semi);
++    return LHS;
++  }
+   return ParseRHSOfBinaryExpression(move(LHS), prec::Assignment);
+ }
+ 
+@@ -631,6 +637,20 @@
+       }
+     }
+ 
++    if (getLang().Eero) {
++      // Eero does not require '@' for objc keywords
++      if (Tok.getObjCKeywordID() != tok::objc_not_keyword) {
++        return ParseObjCAtExpression(Tok.getLocation());
++      }
++      // Implicit message brackets TODO: revisit this with sema code
++      if (BracketCount == 0 &&
++          (NextToken().is(tok::identifier) || NextToken().is(tok::colon)) && 
++          !NextToken().isAtStartOfLine() && !InSystemHeader(Tok.getLocation())) {
++        BracketCount = InferredBracketOffset;
++        return ParsePostfixExpressionSuffix(ParseObjCMessageExpression());
++      }
++    }
++
+     // Consume the identifier so that we can see if it is followed by a '(' or
+     // '.'.
+     IdentifierInfo &II = *Tok.getIdentifierInfo();
+@@ -718,9 +738,15 @@
+     break;
+   }
+   case tok::char_constant:     // constant: character-constant
+-    Res = Actions.ActOnCharacterConstant(Tok);
+-    ConsumeToken();
+-    break;
++    if (!getLang().Eero || InSystemHeader(Tok.getLocation())) {
++      Res = Actions.ActOnCharacterConstant(Tok);
++      ConsumeToken();
++      break;
++    } else {
++      Tok.setKind(tok::string_literal);
++      return ParseObjCAtExpression(Tok.getLocation());   
++    }
++      
+   case tok::kw___func__:       // primary-expression: __func__ [C99 6.4.2.2]
+   case tok::kw___FUNCTION__:   // primary-expression: __FUNCTION__ [GNU]
+   case tok::kw___PRETTY_FUNCTION__:  // primary-expression: __P..Y_F..N__ [GNU]
+@@ -1012,10 +1038,32 @@
+     ConsumeCodeCompletionToken();
+     return ParseCastExpression(isUnaryExpression, isAddressOfOperand, 
+                                NotCastExpr, TypeOfCast);
++
++  case tok::kw_typedef: // should only get here with Eero "typedef XX... ..."
++    return ParsePrefixTypedef(ConsumeToken());
++
+   case tok::l_square:
+     // These can be followed by postfix-expr pieces.
+-    if (getLang().ObjC1)
++    if (getLang().ObjC1 && !getLang().Eero)
+       return ParsePostfixExpressionSuffix(ParseObjCMessageExpression());
++
++    // Eero logic to handle the optional outermost brackets when the complete expression
++    // started with an opening bracket.
++    if (getLang().Eero) {
++      ExprResult result = 
++          ParsePostfixExpressionSuffix(ParseObjCMessageExpression());
++
++      // Look for a selector on the same line as, and following, the closing bracket 
++      // from the previous message passing expression.
++      if (BracketCount == 0 && Tok.is(tok::identifier) && !Tok.isAtStartOfLine()) {
++        result = ParsePostfixExpressionSuffix(
++              ParseObjCMessageExpressionBody(SourceLocation(), 
++                                             SourceLocation(),
++                                             ParsedType(), 
++                                             result.take()));
++      }
++      return result;
++    }
+     // FALL THROUGH.      
+   default:
+     NotCastExpr = true;
+@@ -1722,7 +1770,7 @@
+   } else {
+     InMessageExpressionRAIIObject InMessage(*this, false);
+     
+-    Result = ParseExpression();
++    Result = ParseExpression(true);
+     ExprType = SimpleExpr;
+     if (!Result.isInvalid() && Tok.is(tok::r_paren))
+       Result = Actions.ActOnParenExpr(OpenLoc, Tok.getLocation(), Result.take());
+@@ -1889,7 +1937,7 @@
+ 
+   // If this block has arguments, parse them.  There is no ambiguity here with
+   // the expression case, because the expression case requires a parameter list.
+-  if (Tok.is(tok::l_paren)) {
++  if (Tok.is(tok::l_paren) && (!getLang().Eero || !Tok.isAtStartOfLine())) {
+     ParseParenDeclarator(ParamInfo);
+     // Parse the pieces after the identifier as if we had "int(...)".
+     // SetIdentifier sets the source range end, but in this case we're past
+@@ -1909,7 +1957,7 @@
+ 
+     // Inform sema that we are starting a block.
+     Actions.ActOnBlockArguments(ParamInfo, getCurScope());
+-  } else if (!Tok.is(tok::l_brace)) {
++  } else if (!Tok.is(tok::l_brace) && (!getLang().Eero || !Tok.isAtStartOfLine())) {
+     ParseBlockId();
+   } else {
+     // Otherwise, pretend we saw (void).
+@@ -1930,6 +1978,10 @@
+     Actions.ActOnBlockArguments(ParamInfo, getCurScope());
+   }
+ 
++  // It's easiest if we just inject the inferred left brace for Eero
++  if (getLang().Eero) {
++    InsertToken(tok::l_brace);
++  }
+ 
+   ExprResult Result(true);
+   if (!Tok.is(tok::l_brace)) {
+Index: lib/Parse/ParseStmt.cpp
+===================================================================
+--- lib/Parse/ParseStmt.cpp	(revision 129311)
++++ lib/Parse/ParseStmt.cpp	(working copy)
+@@ -102,9 +102,45 @@
+     return ParseStatementOrDeclaration(Stmts, OnlyStatement);
+       
+   case tok::identifier:
+-    if (NextToken().is(tok::colon)) { // C99 6.8.1: labeled-statement
+-      // identifier ':' statement
+-      return ParseLabeledStatement(attrs);
++    if (!getLang().Eero) {
++      if (NextToken().is(tok::colon)) { // C99 6.8.1: labeled-statement
++        // identifier ':' statement
++        return ParseLabeledStatement(attrs);
++      }
++    } else {
++      // If an objc '@' keyword (without the '@')
++      if (Tok.getObjCKeywordID() != tok::objc_not_keyword) {
++        return ParseObjCAtStatement(Tok.getLocation());
++      }    
++      // Note that Eero does not support gotos/labels
++      if (GetLookAheadToken(1).is(tok::identifier) && 
++          GetLookAheadToken(2).is(tok::colon) && 
++          GetLookAheadToken(3).is(tok::equal)) { // support ":=" operator
++        Token objectClass = Tok;
++        ConsumeToken();
++        Token object = Tok;
++        ConsumeToken();
++        ConsumeToken(); // ":"
++        Token equals = Tok;
++        ConsumeToken(); // "="        
++        Tok.clearFlag(Token::StartOfLine); // ignore any newlines after the ":="
++        
++        if (Tok.isNot(tok::l_square)) { // support "Class object := message ..."
++          PP.EnterToken(Tok); // push forward new current token
++          PP.EnterToken(objectClass);
++        } else if (NextToken().is(tok::identifier)) {  // support "Class object := [message] ..."
++          Token l_square = Tok;
++          ConsumeBracket(); // "["
++          BracketCount--; // adjust since bracket will be restored
++          PP.EnterToken(Tok); // push forward new current token
++          PP.EnterToken(objectClass);
++          PP.EnterToken(l_square);
++        }
++        PP.EnterToken(equals);
++        PP.EnterToken(object);
++        PP.EnterToken(objectClass);          
++        ConsumeAnyToken(); // remove token that was pushed forward earlier
++      }
+     }
+     // PASS THROUGH.
+ 
+@@ -134,16 +170,33 @@
+       return StmtError();
+     }
+     // Otherwise, eat the semicolon.
+-    ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
++    if (!getLang().Eero) {
++      ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
++    } else if (Tok.is(tok::semi)) {
++      ConsumeToken();
++    }
+     return Actions.ActOnExprStmt(Actions.MakeFullExpr(Expr.get()));
+   }
+ 
+   case tok::kw_case:                // C99 6.8.1: labeled-statement
++    if (getLang().Eero) { // auto-break all cases/defaults
++      Actions.ActOnBreakStmt(Tok.getLocation(), getCurScope());      
++    }
+     return ParseCaseStatement(attrs);
+   case tok::kw_default:             // C99 6.8.1: labeled-statement
++    if (getLang().Eero) { // auto-break all cases/defaults
++      Actions.ActOnBreakStmt(Tok.getLocation(), getCurScope());
++    }
+     return ParseDefaultStatement(attrs);
+ 
+   case tok::l_brace:                // C99 6.8.2: compound-statement
++    if (getLang().Eero && 
++        Tok.getLength() != 0 && // if not an inserted left brace
++        !InSystemHeader(Tok.getLocation())) {
++      Diag(Tok, diag::err_lbrace_not_allowed);
++      SkipUntil(tok::semi);
++      return StmtError();
++    }
+     return ParseCompoundStatement(attrs);
+   case tok::semi: {                 // C99 6.8.3p3: expression[opt] ';'
+     bool LeadingEmptyMacro = Tok.hasLeadingEmptyMacro();
+@@ -165,6 +218,11 @@
+     return ParseForStatement(attrs);
+ 
+   case tok::kw_goto:                // C99 6.8.6.1: goto-statement
++    if (getLang().Eero) { // goto still a keyword, but use is forbidden in Eero
++      Diag(Tok, diag::err_goto_statement_forbidden);
++      SkipUntil(tok::identifier);
++      return StmtError();
++    }      
+     Res = ParseGotoStatement(attrs);
+     SemiError = "goto";
+     break;
+@@ -198,7 +256,7 @@
+   // If we reached this code, the statement must end in a semicolon.
+   if (Tok.is(tok::semi)) {
+     ConsumeToken();
+-  } else if (!Res.isInvalid()) {
++  } else if (!Res.isInvalid() && !getLang().Eero) {
+     // If the result was valid, then we do want to diagnose this.  Use
+     // ExpectAndConsume to emit the diagnostic, even though we know it won't
+     // succeed.
+@@ -319,15 +377,17 @@
+       ColonLoc = ConsumeToken();
+ 
+     // Treat "case blah;" as a typo for "case blah:".
+-    } else if (Tok.is(tok::semi)) {
++    } else if (!getLang().Eero && Tok.is(tok::semi)) {
+       ColonLoc = ConsumeToken();
+       Diag(ColonLoc, diag::err_expected_colon_after) << "'case'"
+         << FixItHint::CreateReplacement(ColonLoc, ":");
+-    } else {
++    } else if (!getLang().Eero) {
+       SourceLocation ExpectedLoc = PP.getLocForEndOfToken(PrevTokLocation);
+       Diag(ExpectedLoc, diag::err_expected_colon_after) << "'case'"
+         << FixItHint::CreateInsertion(ExpectedLoc, ":");
+       ColonLoc = ExpectedLoc;
++    } else if (Tok.isNot(tok::comma)) { // Eero, not a list of cases
++      InsertToken(tok::l_brace);        // create a new scope
+     }
+     
+     StmtResult Case =
+@@ -352,7 +412,7 @@
+     }
+ 
+     // Handle all case statements.
+-  } while (Tok.is(tok::kw_case));
++  } while (Tok.is(tok::kw_case) || (getLang().Eero && Tok.is(tok::comma)) );
+ 
+   assert(!TopLevelCase.isInvalid() && "Should have parsed at least one case!");
+ 
+@@ -396,15 +456,17 @@
+     ColonLoc = ConsumeToken();
+ 
+   // Treat "default;" as a typo for "default:".
+-  } else if (Tok.is(tok::semi)) {
++  } else if (!getLang().Eero && Tok.is(tok::semi)) {
+     ColonLoc = ConsumeToken();
+     Diag(ColonLoc, diag::err_expected_colon_after) << "'default'"
+       << FixItHint::CreateReplacement(ColonLoc, ":");
+-  } else {
++  } else if (!getLang().Eero) {
+     SourceLocation ExpectedLoc = PP.getLocForEndOfToken(PrevTokLocation);
+     Diag(ExpectedLoc, diag::err_expected_colon_after) << "'default'"
+       << FixItHint::CreateInsertion(ExpectedLoc, ":");
+     ColonLoc = ExpectedLoc;
++  } else { // Eero, expect a new scope
++    InsertToken(tok::l_brace);
+   }
+   
+   // Diagnose the common error "switch (X) {... default: }", which is not valid.
+@@ -463,7 +525,19 @@
+   return ParseCompoundStatementBody(isStmtExpr);
+ }
+ 
++/// File-private helper function used for Eero to determine if an indentation level
++/// is valid (previously established) for the current scope.
++static bool IsValidIndentation( unsigned column, 
++                                const std::deque<unsigned>& indentationPositions) {
++  if (column < indentationPositions.back())
++    return true;
++  else
++    return ( find( indentationPositions.begin(), 
++                   indentationPositions.end(), 
++                   column ) != indentationPositions.end() );
++}
+ 
++
+ /// ParseCompoundStatementBody - Parse a sequence of statements and invoke the
+ /// ActOnCompoundStmt action.  This expects the '{' to be the current token, and
+ /// consume the '}' at the end of the block.  It does not manipulate the scope
+@@ -480,7 +554,7 @@
+ 
+   // "__label__ X, Y, Z;" is the GNU "Local Label" extension.  These are
+   // only allowed at the start of a compound stmt regardless of the language.
+-  while (Tok.is(tok::kw___label__)) {
++  while (Tok.is(tok::kw___label__) && !getLang().Eero) {
+     SourceLocation LabelLoc = ConsumeToken();
+     Diag(LabelLoc, diag::ext_gnu_local_label);
+     
+@@ -509,8 +583,33 @@
+     if (R.isUsable())
+       Stmts.push_back(R.release());
+   }
+-  
++
++  bool newScope(true); // Eero, for off-side rule support
++
+   while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof)) {
++
++    if (getLang().Eero && Tok.isAtStartOfLine() && !InSystemHeader(LBraceLoc)) {      
++      unsigned column = Column(Tok.getLocation());      
++      if (!indentationPositions.empty()) {
++        if ((newScope && column <= indentationPositions.front()) ||
++            (!newScope && column != indentationPositions.front())) {          
++          if (column < indentationPositions.front() && 
++              IsValidIndentation(column,indentationPositions)) {
++            InsertToken(tok::r_brace);
++            break;          
++          } else {
++            Diag(Tok, diag::err_ambiguous_indentation);
++            SkipUntil(tok::semi);
++            return StmtError();
++          }
++        }
++      }
++      if (newScope) {
++        newScope = false;
++        indentationPositions.push_front(column);
++      }
++    }    
++
+     if (Tok.is(tok::annot_pragma_unused)) {
+       HandlePragmaUnused();
+       continue;
+@@ -551,10 +650,14 @@
+           continue;
+         }
+ 
+-        // FIXME: Use attributes?
+-        // Eat the semicolon at the end of stmt and convert the expr into a
+-        // statement.
+-        ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
++        if (!getLang().Eero) {
++          // FIXME: Use attributes?
++          // Eat the semicolon at the end of stmt and convert the expr into a
++          // statement.
++          ExpectAndConsumeSemi(diag::err_expected_semi_after_expr);
++        } else if (Tok.is(tok::semi)) {
++          ConsumeToken();
++        }
+         R = Actions.ActOnExprStmt(Actions.MakeFullExpr(Res.get()));
+       }
+     }
+@@ -563,10 +666,22 @@
+       Stmts.push_back(R.release());
+   }
+ 
++  if (getLang().Eero && !indentationPositions.empty()) {
++    indentationPositions.pop_front();
++  }
++
+   // We broke out of the while loop because we found a '}' or EOF.
+-  if (Tok.isNot(tok::r_brace)) {
+-    Diag(Tok, diag::err_expected_rbrace);
+-    Diag(LBraceLoc, diag::note_matching) << "{";
++  if (!getLang().Eero || InSystemHeader(LBraceLoc)) {
++    if (Tok.isNot(tok::r_brace)) {
++      Diag(Tok, diag::err_expected_rbrace);
++      Diag(LBraceLoc, diag::note_matching) << "{";
++      return StmtError();
++    } 
++  } else if (Tok.is(tok::eof)) { // exit compound body 
++    InsertToken(tok::r_brace);
++  } else if (Tok.getLength() != 0) { // if not an inserted right brace
++    Diag(Tok, diag::err_rbrace_not_allowed);
++    SkipUntil(tok::r_brace);
+     return StmtError();
+   }
+ 
+@@ -590,7 +705,10 @@
+                                        Decl *&DeclResult,
+                                        SourceLocation Loc,
+                                        bool ConvertToBoolean) {
+-  SourceLocation LParenLoc = ConsumeParen();
++  SourceLocation LParenLoc;  
++  if (!getLang().Eero || InSystemHeader(Loc)) {
++    LParenLoc = ConsumeParen();
++  }
+   if (getLang().CPlusPlus) 
+     ParseCXXCondition(ExprResult, DeclResult, Loc, ConvertToBoolean);
+   else {
+@@ -614,8 +732,10 @@
+       return true;
+   }
+ 
+-  // Otherwise the condition is valid or the rparen is present.
+-  MatchRHSPunctuation(tok::r_paren, LParenLoc);
++  if (LParenLoc.isValid()) {
++    // Otherwise the condition is valid or the rparen is present.
++    MatchRHSPunctuation(tok::r_paren, LParenLoc);
++  }
+   return false;
+ }
+ 
+@@ -633,7 +753,7 @@
+   assert(Tok.is(tok::kw_if) && "Not an if stmt!");
+   SourceLocation IfLoc = ConsumeToken();  // eat the 'if'.
+ 
+-  if (Tok.isNot(tok::l_paren)) {
++  if (!getLang().Eero && Tok.isNot(tok::l_paren)) {
+     Diag(Tok, diag::err_expected_lparen_after) << "if";
+     SkipUntil(tok::semi);
+     return StmtError();
+@@ -663,6 +783,11 @@
+ 
+   FullExprArg FullCondExp(Actions.MakeFullExpr(CondExp.get()));
+ 
++  // It's easiest if we just inject the inferred left brace
++  if (getLang().Eero && !InSystemHeader(IfLoc)) {
++    InsertToken(tok::l_brace);
++  }
++
+   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
+   // there is no compound stmt.  C90 does not have this clause.  We only do this
+   // if the body isn't a compound statement to avoid push/pop in common cases.
+@@ -697,25 +822,38 @@
+   StmtResult ElseStmt;
+ 
+   if (Tok.is(tok::kw_else)) {
+-    ElseLoc = ConsumeToken();
+-    ElseStmtLoc = Tok.getLocation();
+ 
+-    // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
+-    // there is no compound stmt.  C90 does not have this clause.  We only do
+-    // this if the body isn't a compound statement to avoid push/pop in common
+-    // cases.
+-    //
+-    // C++ 6.4p1:
+-    // The substatement in a selection-statement (each substatement, in the else
+-    // form of the if statement) implicitly defines a local scope.
+-    //
+-    ParseScope InnerScope(this, Scope::DeclScope,
+-                          C99orCXX && Tok.isNot(tok::l_brace));
++    if (!getLang().Eero || InSystemHeader(IfLoc) || 
++        Column(Tok.getLocation()) == Column(IfLoc)) {
+ 
+-    ElseStmt = ParseStatement();
+-    
+-    // Pop the 'else' scope if needed.
+-    InnerScope.Exit();
++      ElseLoc = ConsumeToken();
++      
++      // It's easiest if we just inject the inferred left brace
++      if (getLang().Eero &&
++          (Tok.isNot(tok::kw_if) || !Tok.isAtStartOfLine()) && 
++          !InSystemHeader(IfLoc)) {
++        InsertToken(tok::l_brace);
++      }
++
++      ElseStmtLoc = Tok.getLocation();
++
++      // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
++      // there is no compound stmt.  C90 does not have this clause.  We only do
++      // this if the body isn't a compound statement to avoid push/pop in common
++      // cases.
++      //
++      // C++ 6.4p1:
++      // The substatement in a selection-statement (each substatement, in the else
++      // form of the if statement) implicitly defines a local scope.
++      //
++      ParseScope InnerScope(this, Scope::DeclScope,
++                            C99orCXX && Tok.isNot(tok::l_brace));
++
++      ElseStmt = ParseStatement();
++      
++      // Pop the 'else' scope if needed.
++      InnerScope.Exit();
++    }
+   }
+ 
+   IfScope.Exit();
+@@ -755,7 +893,7 @@
+   assert(Tok.is(tok::kw_switch) && "Not a switch stmt!");
+   SourceLocation SwitchLoc = ConsumeToken();  // eat the 'switch'.
+ 
+-  if (Tok.isNot(tok::l_paren)) {
++  if (!getLang().Eero && Tok.isNot(tok::l_paren)) {
+     Diag(Tok, diag::err_expected_lparen_after) << "switch";
+     SkipUntil(tok::semi);
+     return StmtError();
+@@ -801,7 +939,12 @@
+       SkipUntil(tok::semi);
+     return move(Switch);
+   }
+-  
++
++  // It's easiest if we just inject the inferred left brace
++  if (getLang().Eero && !InSystemHeader(SwitchLoc)) {
++    InsertToken(tok::l_brace);
++  }
++
+   // C99 6.8.4p3 - In C99, the body of the switch statement is a scope, even if
+   // there is no compound stmt.  C90 does not have this clause.  We only do this
+   // if the body isn't a compound statement to avoid push/pop in common cases.
+@@ -841,7 +984,7 @@
+   SourceLocation WhileLoc = Tok.getLocation();
+   ConsumeToken();  // eat the 'while'.
+ 
+-  if (Tok.isNot(tok::l_paren)) {
++  if (!getLang().Eero && Tok.isNot(tok::l_paren)) {
+     Diag(Tok, diag::err_expected_lparen_after) << "while";
+     SkipUntil(tok::semi);
+     return StmtError();
+@@ -877,6 +1020,11 @@
+ 
+   FullExprArg FullCond(Actions.MakeFullExpr(Cond.get()));
+ 
++  // It's easiest if we just inject the inferred left brace
++  if (getLang().Eero && !InSystemHeader(WhileLoc)) {
++    InsertToken(tok::l_brace);
++  }
++
+   // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
+   // there is no compound stmt.  C90 does not have this clause.  We only do this
+   // if the body isn't a compound statement to avoid push/pop in common cases.
+@@ -924,6 +1072,11 @@
+ 
+   ParseScope DoScope(this, ScopeFlags);
+ 
++  // It's easiest if we just inject the inferred left brace
++  if (getLang().Eero && !InSystemHeader(DoLoc)) {
++    InsertToken(tok::l_brace);
++  }
++
+   // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
+   // there is no compound stmt.  C90 does not have this clause. We only do this
+   // if the body isn't a compound statement to avoid push/pop in common cases.
+@@ -952,16 +1105,22 @@
+   }
+   SourceLocation WhileLoc = ConsumeToken();
+ 
+-  if (Tok.isNot(tok::l_paren)) {
++  if (!getLang().Eero && Tok.isNot(tok::l_paren)) {
+     Diag(Tok, diag::err_expected_lparen_after) << "do/while";
+     SkipUntil(tok::semi, false, true);
+     return StmtError();
+   }
+ 
+   // Parse the parenthesized condition.
+-  SourceLocation LPLoc = ConsumeParen();
++  SourceLocation LPLoc;
++  if (!getLang().Eero || Tok.is(tok::l_paren)) {
++    LPLoc = ConsumeParen();
++  }
+   ExprResult Cond = ParseExpression();
+-  SourceLocation RPLoc = MatchRHSPunctuation(tok::r_paren, LPLoc);
++  SourceLocation RPLoc;
++  if (!getLang().Eero || LPLoc.isValid()) {
++    RPLoc = MatchRHSPunctuation(tok::r_paren, LPLoc);
++  }
+   DoScope.Exit();
+ 
+   if (Cond.isInvalid() || Body.isInvalid())
+@@ -990,7 +1149,7 @@
+   assert(Tok.is(tok::kw_for) && "Not a for stmt!");
+   SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
+ 
+-  if (Tok.isNot(tok::l_paren)) {
++  if (!getLang().Eero && Tok.isNot(tok::l_paren)) {
+     Diag(Tok, diag::err_expected_lparen_after) << "for";
+     SkipUntil(tok::semi);
+     return StmtError();
+@@ -1022,7 +1181,10 @@
+ 
+   ParseScope ForScope(this, ScopeFlags);
+ 
+-  SourceLocation LParenLoc = ConsumeParen();
++  SourceLocation LParenLoc;  
++  if (!getLang().Eero || Tok.is(tok::l_paren)) {
++    LParenLoc = ConsumeParen();
++  }
+   ExprResult Value;
+ 
+   bool ForEach = false;
+@@ -1032,6 +1194,7 @@
+   ExprResult Collection;
+   FullExprArg ThirdPart(Actions);
+   Decl *SecondVar = 0;
++  TypeResult StrictEnumType = TypeResult(true); // Eero
+   
+   if (Tok.is(tok::code_completion)) {
+     Actions.CodeCompleteOrdinaryName(getCurScope(), 
+@@ -1065,16 +1228,33 @@
+       // ObjC: for (id x in expr)
+       ConsumeToken(); // consume 'in'
+       
+-      if (Tok.is(tok::code_completion)) {
+-        Actions.CodeCompleteObjCForCollection(getCurScope(), DG);
+-        ConsumeCodeCompletionToken();
++      // Eero supports strict enum types for the "in" range
++      if (getLang().Eero && isTypeSpecifierQualifier()) { 
++        StrictEnumType = ParseTypeName();
++        if (StrictEnumType.isInvalid()) {
++          Diag(Tok, diag::err_expected_type_name_after_typename);
++          return StmtError(Diag(Tok, diag::err_expected_type));
++        }
++      } else {        
++        if (Tok.is(tok::code_completion)) {
++          Actions.CodeCompleteObjCForCollection(getCurScope(), DG);
++          ConsumeCodeCompletionToken();
++        }
++        Collection = ParseExpression();
+       }
+-      Collection = ParseExpression();
+     } else {
+       Diag(Tok, diag::err_expected_semi_for);
+     }
+   } else {
+-    Value = ParseExpression();
++    if (getLang().Eero && NextToken().is(tok::identifier)) {
++      Token tempSemicolon(Tok);
++      tempSemicolon.setKind(tok::semi);
++      PP.EnterToken(tempSemicolon);
++      Value = ParseExpression();
++      ConsumeToken(); // inserted temp semicolon
++    } else {
++      Value = ParseExpression();
++    }
+ 
+     ForEach = isTokIdentifier_in();
+ 
+@@ -1091,11 +1271,20 @@
+     } else if (ForEach) {
+       ConsumeToken(); // consume 'in'
+       
+-      if (Tok.is(tok::code_completion)) {
+-        Actions.CodeCompleteObjCForCollection(getCurScope(), DeclGroupPtrTy());
+-        ConsumeCodeCompletionToken();
++      // Eero supports strict enum types for the "in" range
++      if (getLang().Eero && isTypeSpecifierQualifier()) { 
++        StrictEnumType = ParseTypeName();
++        if (StrictEnumType.isInvalid()) {
++          Diag(Tok, diag::err_expected_type_name_after_typename);
++          return StmtError(Diag(Tok, diag::err_expected_type));
++        }
++      } else {
++        if (Tok.is(tok::code_completion)) {
++          Actions.CodeCompleteObjCForCollection(getCurScope(), DeclGroupPtrTy());
++          ConsumeCodeCompletionToken();
++        }
++        Collection = ParseExpression();
+       }
+-      Collection = ParseExpression();
+     } else {
+       if (!Value.isInvalid()) {
+         Diag(Tok, diag::err_expected_semi_for);
+@@ -1147,8 +1336,16 @@
+     }
+   }
+   // Match the ')'.
+-  SourceLocation RParenLoc = MatchRHSPunctuation(tok::r_paren, LParenLoc);
++  SourceLocation RParenLoc;
++  if (LParenLoc.isValid()) {
++    RParenLoc = MatchRHSPunctuation(tok::r_paren, LParenLoc);
++  }
+ 
++  // It's easiest if we just inject the inferred left brace
++  if (getLang().Eero && !InSystemHeader(ForLoc)) {
++    InsertToken(tok::l_brace);
++  }
++
+   // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
+   // there is no compound stmt.  C90 does not have this clause.  We only do this
+   // if the body isn't a compound statement to avoid push/pop in common cases.
+@@ -1179,6 +1376,12 @@
+     return Actions.ActOnForStmt(ForLoc, LParenLoc, FirstPart.take(), SecondPart,
+                                 SecondVar, ThirdPart, RParenLoc, Body.take());
+ 
++  if (getLang().Eero && !StrictEnumType.isInvalid())
++    return Actions.ActOnEeroForStrictEnumStmt(ForLoc, 
++                                              FirstPart.take(), 
++                                              StrictEnumType.take(), 
++                                              Body.take());
++
+   // FIXME: It isn't clear how to communicate the late destruction of 
+   // C++ temporaries used to create the collection.
+   return Actions.ActOnObjCForCollectionStmt(ForLoc, LParenLoc, FirstPart.take(), 
+@@ -1259,7 +1462,7 @@
+   SourceLocation ReturnLoc = ConsumeToken();  // eat the 'return'.
+ 
+   ExprResult R;
+-  if (Tok.isNot(tok::semi)) {
++  if (Tok.isNot(tok::semi) && !(getLang().Eero && Tok.isAtStartOfLine())) {
+     if (Tok.is(tok::code_completion)) {
+       Actions.CodeCompleteReturn(getCurScope());
+       ConsumeCodeCompletionToken();
+Index: lib/Parse/Parser.cpp
+===================================================================
+--- lib/Parse/Parser.cpp	(revision 129311)
++++ lib/Parse/Parser.cpp	(working copy)
+@@ -243,6 +243,15 @@
+         }
+         return true;
+       }
++      // For Eero searches on semicolon, skip to next statement in current block
++      if (getLang().Eero && 
++          (StopAtSemi || Toks[i] == tok::semi) &&
++          !InSystemHeader(Tok.getLocation()) &&
++          Tok.isAtStartOfLine() && 
++          !indentationPositions.empty() &&
++          Column(Tok.getLocation()) <= indentationPositions.front()) {
++        return false;
++      }
+     }
+ 
+     switch (Tok.getKind()) {
+@@ -549,6 +558,13 @@
+   case tok::kw_using:
+   case tok::kw_namespace:
+   case tok::kw_typedef:
++    if (getLang().Eero && 
++        GetLookAheadToken(1).is(tok::identifier) && 
++        GetLookAheadToken(2).is(tok::ellipsis) && 
++        GetLookAheadToken(3).is(tok::ellipsis) ) {
++      ParsePrefixTypedef(ConsumeToken());
++      break;
++    }   
+   case tok::kw_template:
+   case tok::kw_export:    // As in 'export template'
+   case tok::kw_static_assert:
+@@ -608,6 +624,20 @@
+ 
+   default:
+   dont_know:
++    if (getLang().Eero) {
++      // If an objc '@' keyword (without the '@')
++      if (Tok.getObjCKeywordID() != tok::objc_not_keyword) {
++        InsertToken(tok::at);
++        SingleDecl = ParseObjCAtDirectives();
++        break;
++      } else if (!PendingObjCImpDecl.empty() && // within interface or impl block
++                 (Tok.is(tok::identifier) ||    //   instance method
++                  Tok.is(tok::kw_static) ||     //   class method
++                  Tok.is(tok::colon))) {        //   unnamed method
++        SingleDecl = ParseObjCMethodDefinition();
++        break;
++      }
++    }
+     // We can't tell whether this is a function-definition or declaration yet.
+     if (DS) {
+       DS->takeAttributesFrom(attrs);
+@@ -638,6 +668,17 @@
+ /// declarator, indicates the start of a function definition.
+ bool Parser::isStartOfFunctionDefinition(const ParsingDeclarator &Declarator) {
+   assert(Declarator.isFunctionDeclarator() && "Isn't a function declarator");
++  // Check for Eero function definition or declaration
++  if (getLang().Eero && 
++      Tok.isAtStartOfLine() && 
++      !InSystemHeader(Tok.getLocation())) {
++    if (Column(Tok.getLocation()) >   // look for indentation
++        Column(Declarator.getSourceRange().getBegin())) {
++      return true;
++    } else {
++      return false;
++    }
++  }
+   if (Tok.is(tok::l_brace))   // int X() {}
+     return true;
+   
+@@ -747,6 +788,11 @@
+                                       const ParsedTemplateInfo &TemplateInfo) {
+   const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
+ 
++  // For Eero, it's easiest if we just inject the inferred left brace
++  if (getLang().Eero && !InSystemHeader(Tok.getLocation())) {
++    InsertToken(tok::l_brace);
++  }
++
+   // If this is C90 and the declspecs were completely missing, fudge in an
+   // implicit int.  We do this here because this is the only place where
+   // declaration-specifiers are completely optional in the grammar.
