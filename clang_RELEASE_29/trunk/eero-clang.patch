@@ -403,6 +403,19 @@ Index: lib/Frontend/FrontendOptions.cpp
      .Case("mi", IK_PreprocessedObjC)
      .Cases("mm", "M", IK_ObjCXX)
      .Case("mii", IK_PreprocessedObjCXX)
+Index: lib/Basic/Version.cpp
+===================================================================
+--- lib/Basic/Version.cpp	(revision 129311)
++++ lib/Basic/Version.cpp	(working copy)
+@@ -77,7 +77,7 @@
+   OS << CLANG_VENDOR;
+ #endif
+   OS << "clang version " CLANG_VERSION_STRING " ("
+-     << getClangFullRepositoryVersion() << ')';
++     << getClangFullRepositoryVersion() << ')' << " (Eero support added)";
+ 
+   // If vendor supplied, include the base LLVM version as well.
+ #ifdef CLANG_VENDOR
 Index: lib/Sema/SemaDeclObjC.cpp
 ===================================================================
 --- lib/Sema/SemaDeclObjC.cpp	(revision 129311)
