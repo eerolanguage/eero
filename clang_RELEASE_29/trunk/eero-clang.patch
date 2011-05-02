@@ -257,7 +257,7 @@ Index: include/clang/Parse/Parser.h
  public:
    Parser(Preprocessor &PP, Sema &Actions);
    ~Parser();
-@@ -542,6 +545,30 @@
+@@ -542,6 +545,31 @@
    /// ExitScope - Pop a scope off the scope stack.
    void ExitScope();
  
@@ -280,6 +280,7 @@ Index: include/clang/Parse/Parser.h
 +    PP.EnterToken(Tok);
 +    Tok.setKind(tokenKind);
 +    Tok.setLength(0);
++    Tok.setIdentifierInfo(0);
 +  }
 +
 +  /// Const value used with Eero
@@ -288,7 +289,7 @@ Index: include/clang/Parse/Parser.h
    //===--------------------------------------------------------------------===//
    // Diagnostic Emission and Error recovery.
  
-@@ -1006,10 +1033,10 @@
+@@ -1006,10 +1034,10 @@
    //===--------------------------------------------------------------------===//
    // C99 6.5: Expressions.
    
@@ -301,7 +302,7 @@ Index: include/clang/Parse/Parser.h
  
    ExprResult ParseExpressionWithLeadingAt(SourceLocation AtLoc);
  
-@@ -1197,6 +1224,10 @@
+@@ -1197,6 +1225,10 @@
    bool ParseObjCXXMessageReceiver(bool &IsExpr, void *&TypeOrExpr);
  
    //===--------------------------------------------------------------------===//
@@ -312,7 +313,7 @@ Index: include/clang/Parse/Parser.h
    // C99 6.8: Statements and Blocks.
  
    StmtResult ParseStatement() {
-@@ -1300,8 +1331,8 @@
+@@ -1300,8 +1332,8 @@
  
    void ParseEnumSpecifier(SourceLocation TagLoc, DeclSpec &DS,
                  const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),
@@ -2396,20 +2397,22 @@ Index: lib/Parse/ParseExpr.cpp
    if (Tok.is(tok::code_completion)) {
      Actions.CodeCompleteOrdinaryName(getCurScope(), Sema::PCC_Expression);
      ConsumeCodeCompletionToken();
-@@ -223,6 +223,12 @@
+@@ -223,6 +223,14 @@
      return ParseThrowExpression();
  
    ExprResult LHS(ParseCastExpression(false));
 +
 +  if (getLang().Eero && !isInParens &&  
-+      Tok.isAtStartOfLine() && !InSystemHeader(Tok.getLocation())) {
++      Tok.isAtStartOfLine() && !InSystemHeader(Tok.getLocation()) &&
++      !Tok.isObjCAtKeyword(tok::objc_catch) && 
++      !Tok.isObjCAtKeyword(tok::objc_finally)) {
 +    InsertToken(tok::semi);
 +    return LHS;
 +  }
    return ParseRHSOfBinaryExpression(move(LHS), prec::Assignment);
  }
  
-@@ -631,6 +637,20 @@
+@@ -631,6 +639,20 @@
        }
      }
  
@@ -2430,7 +2433,7 @@ Index: lib/Parse/ParseExpr.cpp
      // Consume the identifier so that we can see if it is followed by a '(' or
      // '.'.
      IdentifierInfo &II = *Tok.getIdentifierInfo();
-@@ -718,9 +738,15 @@
+@@ -718,9 +740,15 @@
      break;
    }
    case tok::char_constant:     // constant: character-constant
@@ -2449,7 +2452,7 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::kw___func__:       // primary-expression: __func__ [C99 6.4.2.2]
    case tok::kw___FUNCTION__:   // primary-expression: __FUNCTION__ [GNU]
    case tok::kw___PRETTY_FUNCTION__:  // primary-expression: __P..Y_F..N__ [GNU]
-@@ -1012,10 +1038,32 @@
+@@ -1012,10 +1040,32 @@
      ConsumeCodeCompletionToken();
      return ParseCastExpression(isUnaryExpression, isAddressOfOperand, 
                                 NotCastExpr, TypeOfCast);
@@ -2483,7 +2486,7 @@ Index: lib/Parse/ParseExpr.cpp
      // FALL THROUGH.      
    default:
      NotCastExpr = true;
-@@ -1722,7 +1770,7 @@
+@@ -1722,7 +1772,7 @@
    } else {
      InMessageExpressionRAIIObject InMessage(*this, false);
      
@@ -2492,7 +2495,7 @@ Index: lib/Parse/ParseExpr.cpp
      ExprType = SimpleExpr;
      if (!Result.isInvalid() && Tok.is(tok::r_paren))
        Result = Actions.ActOnParenExpr(OpenLoc, Tok.getLocation(), Result.take());
-@@ -1889,7 +1937,7 @@
+@@ -1889,7 +1939,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -2501,7 +2504,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1909,7 +1957,7 @@
+@@ -1909,7 +1959,7 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -2510,7 +2513,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1930,6 +1978,10 @@
+@@ -1930,6 +1980,10 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
