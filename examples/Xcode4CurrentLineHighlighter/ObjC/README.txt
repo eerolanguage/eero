@@ -26,7 +26,7 @@ Or, to simply run Xcode 4 (with the library) from the command line (if you don't
 $  DYLD_INSERT_LIBRARIES=/PATH/TO/CurrentLineHighlighter.dylib open /PATH/TO/Xcode.app
 
 
-NOTE: Only tested with Xcode 4.0.2.
+NOTE: Only tested with Xcode 4.0.2. This is only example code and not intended to be production quality, so please use at your own risk.
 
 
 
