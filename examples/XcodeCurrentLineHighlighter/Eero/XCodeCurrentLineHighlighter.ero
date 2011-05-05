@@ -1,0 +1,288 @@
+//
+//  Copyright (c) 2011 Andreas Arvanitis.  All rights reserved.
+//
+//  Developed by: Andreas (Andy) Arvanitis
+//                The Eero Programming Language
+//                http://eerolanguage.org
+//
+//  Permission is hereby granted, free of charge, to any person obtaining a copy
+//  of this software and associated documentation files (the "Software"), to
+//  deal with the Software without restriction, including without limitation the
+//  rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+//  sell copies of the Software, and to permit persons to whom the Software is
+//  furnished to do so, subject to the following conditions:
+//
+//    1. Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimers.
+//
+//    2. Redistributions in binary form must reproduce the above copyright
+//       notice, this list of conditions and the following disclaimers in the
+//       documentation and/or other materials provided with the distribution.
+//
+//    3. Neither the names of Andreas Arvanitis, The Eero Programming Language,
+//       nor the names of its contributors may be used to endorse
+//       or promote products derived from this Software without specific prior
+//       written permission.
+//
+//  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+//  CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+//  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+//  WITH THE SOFTWARE.
+
+#import <Cocoa/Cocoa.h>
+
+// Singleton instance
+//
+static id singleton = nil
+
+
+interface XCodeCurrentLineHighlighter : Object 
+{
+  private
+    Class       sourceEditorViewClass
+    Dictionary  highlightColorAttributes
+}
+end
+
+
+implementation XCodeCurrentLineHighlighter
+
+//-----------------------------------------------------------------------------------------------
+// This class method gets called when the library is loaded
+//-----------------------------------------------------------------------------------------------
+static load
+  // This library will get loaded by every subprocess that gets spawned,
+  // so make sure to ignore anything but the main Xcode application.
+  //
+  if [[ProcessInfo processInfo] processName] == 'Xcode'
+
+    // NSLog(@"Xcode current line highlighter plugin loaded");
+     
+    if singleton == nil
+      AutoreleasePool pool := new
+      singleton = XCodeCurrentLineHighlighter new
+      pool drain
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+init, return id
+  self = super init
+  if self
+    sourceEditorViewClass = Nil
+    highlightColorAttributes = nil
+
+    NotificationCenter notificationCenter := defaultCenter
+
+    notificationCenter addObserver self,
+                          selector selector( applicationReady: ),
+                              name NSApplicationDidFinishLaunchingNotification,
+                            object nil
+
+    notificationCenter addObserver self,
+                          selector selector( frameChanged: ),
+                              name NSViewFrameDidChangeNotification,
+                            object nil
+
+    notificationCenter addObserver self,
+                          selector selector( selectionChanged: ),
+                              name NSTextViewDidChangeSelectionNotification,
+                            object nil
+  return self
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+dealloc
+  [NotificationCenter defaultCenter] removeObserver self
+  super dealloc
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+highlightColorDefaultsKeyName, return String
+  return 'CurrentLineHighlightColor'
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+highlightColorMenuItemTitle, return String
+  return 'Current Line Highlight Color...'
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+highlightColorMenuItemIndex, return UInteger
+  return 10
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+loadHighlightColor
+
+  UserDefaults userDefaults := standardUserDefaults
+
+  Data colorAsData = userDefaults objectForKey [self highlightColorDefaultsKeyName]
+
+  if colorAsData != nil
+    Color color = KeyedUnarchiver unarchiveObjectWithData colorAsData
+
+    highlightColorAttributes = 
+        Dictionary dictionaryWithObjectsAndKeys: color, NSBackgroundColorAttributeName
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+saveHighlightColor Color
+  Data colorAsData = KeyedArchiver archivedDataWithRootObject color
+  UserDefaults userDefaults := standardUserDefaults
+  userDefaults setObject colorAsData, forKey [self highlightColorDefaultsKeyName]
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+highlightLineInView TextView, containingRange Range | range
+
+  try
+    [view layoutManager] addTemporaryAttributes highlightColorAttributes,
+                              forCharacterRange [[view string] lineRangeForRange range]
+  catch Exception exception
+    if [exception name] != NSRangeException
+      throw exception
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+removeHighlightFromLineInView TextView, containingRange Range | range
+
+  try
+    [view layoutManager] removeTemporaryAttribute NSBackgroundColorAttributeName,
+                                forCharacterRange [[view string] lineRangeForRange range]
+  catch Exception exception
+    if [exception name] != NSRangeException
+      throw exception;
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+selectHighlightColor id | sender // unused
+
+  ColorPanel colorPanel := sharedColorPanel
+
+  Color color = highlightColorAttributes objectForKey NSBackgroundColorAttributeName
+  colorPanel setColor color
+  colorPanel setTarget self
+  colorPanel setAction selector(changeColor:)
+
+  [NotificationCenter defaultCenter] addObserver self,
+                                        selector selector( colorPanelWillClose: ),
+                                            name NSWindowWillCloseNotification,
+                                          object colorPanel
+  NSApp orderFrontColorPanel nil
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+changeColor id | sender // unused
+
+  ColorPanel colorPanel := sharedColorPanel
+
+  highlightColorAttributes = 
+      Dictionary dictionaryWithObjectsAndKeys: [colorPanel color],
+                                               NSBackgroundColorAttributeName
+  self saveHighlightColor [colorPanel color]
+                                                    
+  // Update window size (grow then back to what it was) in order to cause frame
+  // change even. This is because we can't have a guaranteed valid reference to
+  // the view. Kind of silly, but better than crashing.
+  //
+  id window = NSApp mainWindow
+  NSRect frame = window frame
+  NSRect tempFrame = NSMakeRect( frame.origin.x, 
+                                 frame.origin.y, 
+                                 frame.size.width, 
+                                 frame.size.height + 1.0 )
+
+  window setFrame tempFrame, display YES
+  window setFrame frame, display YES
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+colorPanelWillClose Notification // unused
+
+  ColorPanel colorPanel := sharedColorPanel
+
+  [NotificationCenter defaultCenter] removeObserver self,
+                                               name NSWindowWillCloseNotification,
+                                             object colorPanel
+  colorPanel setTarget nil
+  colorPanel setAction nil
+
+
+//-----------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+addItemToApplicationMenu
+
+  Menu mainMenu = NSApp mainMenu
+  Menu editorMenu = [mainMenu itemAtIndex [mainMenu indexOfItemWithTitle 'Editor']] submenu
+
+  if editorMenu != nil and
+     (editorMenu numberOfItems > [self highlightColorMenuItemIndex]) and
+     [editorMenu itemWithTitle [self highlightColorMenuItemTitle]] == nil
+
+    MenuItem newItem := new
+
+    newItem setTitle [self highlightColorMenuItemTitle]  // note: not localized
+    newItem setTarget self
+    newItem setAction selector( selectHighlightColor: )
+    newItem setEnabled YES
+
+    editorMenu insertItem newItem, 
+                  atIndex [self highlightColorMenuItemIndex]
+
+
+//-----------------------------------------------------------------------------------------------
+// Triggered when Xcode application is done launching
+//-----------------------------------------------------------------------------------------------
+applicationReady Notification
+  sourceEditorViewClass = NSClassFromString('DVTSourceTextView')
+  self loadHighlightColor
+
+
+//-----------------------------------------------------------------------------------------------
+// Triggered when a source editor is created or resized
+//----------------------------------------------------------------------------------------------- 
+frameChanged Notification | notification
+
+  id view = notification object
+
+  if view isMemberOfClass sourceEditorViewClass
+
+    self addItemToApplicationMenu
+
+    self highlightLineInView view,
+             containingRange [view selectedRange]
+
+
+//----------------------------------------------------------------------------------------------- 
+// Triggered when the insertion point (text cursor) in a source editor is moved
+//-----------------------------------------------------------------------------------------------
+selectionChanged Notification | notification
+
+  id view = notification object
+
+  if view isMemberOfClass sourceEditorViewClass
+
+    id info = notification userInfo
+    Range oldRange = [info objectForKey 'NSOldSelectedCharacterRange'] rangeValue
+    Range newRange = view selectedRange
+
+    self removeHighlightFromLineInView view, containingRange oldRange
+
+    if newRange.length == 0  // not a multi-line selection
+      self highlightLineInView view, containingRange newRange
+
+
+end
