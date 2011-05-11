@@ -1179,6 +1179,7 @@
             Tokenizer = "xcode.lang.objc.lexer.toplevel";
             Start = "=";
             End = ";";
+            AltEnd = "\n";
             Recursive = NO;
             IncludeRules = (
                 "xcode.lang.objc.block",
