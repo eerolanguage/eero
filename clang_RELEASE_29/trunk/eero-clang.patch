@@ -183,7 +183,7 @@ Index: include/clang/Sema/Sema.h
    ExprResult BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
                                        SourceLocation OpLoc, bool IsArrow,
                                        CXXScopeSpec &SS,
-@@ -2172,6 +2188,35 @@
+@@ -2172,6 +2188,42 @@
    // __null
    ExprResult ActOnGNUNullExpr(SourceLocation TokenLoc);
  
@@ -216,10 +216,17 @@ Index: include/clang/Sema/Sema.h
 +                                          SourceLocation RParenLoc,
 +                                          Expr* CastExpr);
 +
++  // Eero: "cast" an object to a C-style string (const char*)
++  ExprResult ActOnObjectToCStringTypeCast(Scope *S,
++                                          SourceLocation LParenLoc,
++                                          QualType CStringType, 
++                                          SourceLocation RParenLoc,
++                                          Expr* CastExpr);
++
    //===------------------------- "Block" Extension ------------------------===//
  
    /// ActOnBlockStart - This callback is invoked when a block literal is
-@@ -4627,6 +4672,11 @@
+@@ -4627,6 +4679,11 @@
                                    SourceLocation RBracLoc,
                                    MultiExprArg Args);
  
@@ -1109,7 +1116,7 @@ Index: lib/Sema/SemaExpr.cpp
  /// Check an ext-vector component access expression.
  ///
  /// VK should be set in advance to the value kind of the base
-@@ -5136,7 +5224,38 @@
+@@ -5136,7 +5224,42 @@
    if (isa<ParenListExpr>(castExpr))
      return ActOnCastOfParenListExpr(S, LParenLoc, RParenLoc, castExpr,
                                      castTInfo);
@@ -1140,16 +1147,20 @@ Index: lib/Sema/SemaExpr.cpp
 +            << castExprType << castType;
 +        return ExprError();
 +      }
-+    } else if (castExprType->isObjCObjectPointerType() &&  // convert an object to
-+               castType->isArithmeticType() &&             // a primitive arithmentic
-+               castType->isBuiltinType()) {                // data type
-+      return ActOnObjectToArithmeticTypeCast(S, LParenLoc, castType, RParenLoc, castExpr);
++    } else if (castExprType->isObjCObjectPointerType()) {    // convert an object to...
++      if (castType->isArithmeticType() &&                    // a primitive arithmentic
++          castType->isBuiltinType()) {                       // data type
++        return ActOnObjectToArithmeticTypeCast(S, LParenLoc, castType, RParenLoc, castExpr);
++      } else if (castType->isPointerType() &&                // a C string (char*)
++                 castType->getPointeeType()->isCharType()) { //
++        return ActOnObjectToCStringTypeCast(S, LParenLoc, castType, RParenLoc, castExpr);
++      }
 +    }
 +  }
    return BuildCStyleCastExpr(LParenLoc, castTInfo, RParenLoc, castExpr);
  }
  
-@@ -6246,6 +6365,33 @@
+@@ -6246,6 +6369,33 @@
      return Compatible;
    }
  
@@ -1183,7 +1194,7 @@ Index: lib/Sema/SemaExpr.cpp
    // This check seems unnatural, however it is necessary to ensure the proper
    // conversion of functions/arrays. If the conversion were done for all
    // DeclExpr's (created by ActOnIdExpression), it would mess up the unary
-@@ -7970,6 +8116,27 @@
+@@ -7970,6 +8120,27 @@
        << lhs->getSourceRange() << rhs->getSourceRange();
  }
  
@@ -1211,7 +1222,7 @@ Index: lib/Sema/SemaExpr.cpp
  /// CreateBuiltinBinOp - Creates a new built-in binary operation with
  /// operator @p Opc at location @c TokLoc. This routine only supports
  /// built-in operations; ActOnBinOp handles overloaded operators.
-@@ -8276,6 +8443,13 @@
+@@ -8276,6 +8447,13 @@
    assert((lhs != 0) && "ActOnBinOp(): missing left expression");
    assert((rhs != 0) && "ActOnBinOp(): missing right expression");
  
@@ -1225,7 +1236,7 @@ Index: lib/Sema/SemaExpr.cpp
    // Emit warnings for tricky precedence issues, e.g. "bitfield & 0x4 == 0"
    DiagnoseBinOpPrecedence(*this, Opc, TokLoc, lhs, rhs);
  
-@@ -8454,6 +8628,18 @@
+@@ -8454,6 +8632,18 @@
  // Unary Operators.  'Tok' is the token for the operator.
  ExprResult Sema::ActOnUnaryOp(Scope *S, SourceLocation OpLoc,
                                tok::TokenKind Op, Expr *Input) {
@@ -1244,7 +1255,7 @@ Index: lib/Sema/SemaExpr.cpp
    return BuildUnaryOp(S, OpLoc, ConvertTokenKindToUnaryOpcode(Op), Input);
  }
  
-@@ -9728,3 +9914,286 @@
+@@ -9728,3 +9918,312 @@
    Diag(Loc, diag::err_ovl_unresolvable) << E->getSourceRange();
    return ExprError();
  }
@@ -1432,8 +1443,8 @@ Index: lib/Sema/SemaExpr.cpp
 +  return result;
 +}
 +
-+// Eero: "cast" a built-in numeric value (e.g. int or float) to an object type,
-+// using class method selectors "numberWith<Type>".
++// Eero: "cast" an object to a built in numeric value (e.g. int or float)
++// using instance method selectors "<type>Value".
 +ExprResult Sema::ActOnObjectToArithmeticTypeCast(Scope *S,
 +                                                 SourceLocation LParenLoc,
 +                                                 QualType ArithmeticType, 
@@ -1529,6 +1540,32 @@ Index: lib/Sema/SemaExpr.cpp
 +                           Sel,
 +                           LParenLoc, RParenLoc, CastExpr->getLocEnd(),
 +                           MultiExprArg(*this,&CastExpr,1));
++}
++
++// Eero: "cast" an object to a C-style string (const char*)
++// using instance method selector "UTF8String".
++ExprResult Sema::ActOnObjectToCStringTypeCast(Scope *S,
++                                              SourceLocation LParenLoc,
++                                              QualType CStringType, 
++                                              SourceLocation RParenLoc,
++                                              Expr* CastExpr) {
++
++  if (!CStringType->getPointeeType().isConstQualified()) {
++    Diag(LParenLoc, diag::ext_typecheck_convert_discards_qualifiers) 
++      << CastExpr->getType() << CStringType << AA_Converting
++      << CastExpr->getSourceRange();
++  }
++
++  IdentifierInfo &II = PP.getIdentifierTable().getOwn("UTF8String");      
++  Selector Sel = PP.getSelectorTable().getNullarySelector(&II);
++
++  return ActOnInstanceMessage(S,
++                              CastExpr, 
++                              Sel,
++                              LParenLoc,
++                              RParenLoc,
++                              CastExpr->getLocEnd(),
++                              MultiExprArg());
 +}
 +
 Index: lib/AST/Type.cpp
