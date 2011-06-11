@@ -1859,20 +1859,7 @@ Index: lib/Parse/ParseDecl.cpp
    case tok::kw_extern:
    case tok::kw___private_extern__:
    case tok::kw_static:
-@@ -2937,6 +2984,12 @@
-     goto PastIdentifier;
-   }
-     
-+  if (getLang().Eero && 
-+      Tok.isAtStartOfLine() && 
-+      !InSystemHeader(Tok.getLocation())) {
-+    return;
-+  }
-+
-   if (Tok.is(tok::l_paren)) {
-     // direct-declarator: '(' declarator ')'
-     // direct-declarator: '(' attributes declarator ')'
-@@ -2979,7 +3032,7 @@
+@@ -2979,7 +3026,7 @@
    if (D.getIdentifier())
      MaybeParseCXX0XAttributes(D);
  
@@ -3618,7 +3605,7 @@ Index: lib/Parse/Parser.cpp
  
    default:
    dont_know:
-+    if (getLang().Eero) {
++    if (getLang().Eero && !InSystemHeader(Tok.getLocation())) {
 +      // If an objc '@' keyword (without the '@')
 +      if (Tok.getObjCKeywordID() != tok::objc_not_keyword) {
 +        InsertToken(tok::at);
