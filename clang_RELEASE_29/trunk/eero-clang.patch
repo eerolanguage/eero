@@ -2862,13 +2862,14 @@ Index: lib/Parse/ParseExpr.cpp
      switch (Tok.getKind()) {
      case tok::code_completion:
        if (InMessageExpression)
-@@ -1061,10 +1118,24 @@
+@@ -1061,10 +1118,25 @@
        break;
          
      case tok::identifier:
 +    case tok::colon:      // added for Eero anonymous selector support
 +      // Eero supports message passing with or without square brackets
-+      if (getLang().Eero && !InMessageExpression && 
++      if (getLang().Eero && !LHS.isInvalid() &&
++          !InMessageExpression && 
 +          (!Tok.isAtStartOfLine() || (ParenCount > 0) || (BracketCount > 0))) {
 +        // Step into semantics to make the final decision
 +        const QualType type = LHS.get()->getType();
@@ -2888,7 +2889,7 @@ Index: lib/Parse/ParseExpr.cpp
            (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) {
          LHS = ParseObjCMessageExpressionBody(SourceLocation(), SourceLocation(),
                                               ParsedType(), LHS.get());
-@@ -1092,6 +1163,21 @@
+@@ -1092,6 +1164,21 @@
        SourceLocation RLoc = Tok.getLocation();
  
        if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
@@ -2910,7 +2911,7 @@ Index: lib/Parse/ParseExpr.cpp
          LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.take(), Loc,
                                                Idx.take(), RLoc);
        } else
-@@ -1650,6 +1736,20 @@
+@@ -1650,6 +1737,20 @@
        Ty = ParseTypeName();
      }
      
@@ -2931,7 +2932,7 @@ Index: lib/Parse/ParseExpr.cpp
      // If our type is followed by an identifier and either ':' or ']', then 
      // this is probably an Objective-C message send where the leading '[' is
      // missing. Recover as if that were the case.
-@@ -1889,7 +1989,7 @@
+@@ -1889,7 +1990,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -2940,7 +2941,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1909,7 +2009,7 @@
+@@ -1909,7 +2010,7 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -2949,7 +2950,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1930,6 +2030,10 @@
+@@ -1930,6 +2031,10 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
