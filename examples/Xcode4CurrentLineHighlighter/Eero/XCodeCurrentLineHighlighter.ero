@@ -78,7 +78,12 @@ init, return id
     NotificationCenter notificationCenter := defaultCenter
 
     notificationCenter addObserver self,
-                          selector selector( applicationReady: ),
+                          selector selector(applicationReady:),
+                              name NSApplicationDidFinishLaunchingNotification,
+                            object nil
+
+    notificationCenter addObserver self,
+                          selector 'applicationReady:'
                               name NSApplicationDidFinishLaunchingNotification,
                             object nil
 

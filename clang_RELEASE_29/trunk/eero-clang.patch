@@ -3067,7 +3067,7 @@ Index: lib/Parse/ParseStmt.cpp
 +        Tok.getLength() != 0 && // if not an inserted left brace
 +        !InSystemHeader(Tok.getLocation())) {
 +      Diag(Tok, diag::err_lbrace_not_allowed);
-+      SkipUntil(tok::semi);
++      ConsumeAnyToken(); // eat it and move on
 +      return StmtError();
 +    }
      return ParseCompoundStatement(attrs);
@@ -3209,7 +3209,7 @@ Index: lib/Parse/ParseStmt.cpp
 +            break;          
 +          } else {
 +            Diag(Tok, diag::err_ambiguous_indentation);
-+            SkipUntil(tok::eof, false, true); // everything else might be messed up,
++            SkipUntil(tok::eof, false, true); // subsequent scopes likely off,
 +            return StmtError();               // so abandon the rest of the file
 +          }
 +        }
