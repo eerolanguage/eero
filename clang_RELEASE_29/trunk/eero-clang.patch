@@ -2740,7 +2740,22 @@ Index: lib/Parse/ParseExpr.cpp
    return ParseRHSOfBinaryExpression(move(LHS), prec::Assignment);
  }
  
-@@ -631,6 +639,12 @@
+@@ -289,7 +297,13 @@
+         //   logical-OR-expression '?' expression ':' conditional-expression
+         // In particular, the RHS of the '?' is 'expression', not
+         // 'logical-OR-expression' as we might expect.
+-        TernaryMiddle = ParseExpression();
++        if (!getLang().Eero || InSystemHeader(Tok.getLocation())) {
++          TernaryMiddle = ParseExpression();
++        } else { // require either parens or brackets for any messaging here
++          InMessageExpression = true;
++          TernaryMiddle = ParseExpression();
++          InMessageExpression = false;
++        }
+         if (TernaryMiddle.isInvalid()) {
+           LHS = ExprError();
+           TernaryMiddle = 0;
+@@ -631,6 +645,12 @@
        }
      }
  
@@ -2753,7 +2768,7 @@ Index: lib/Parse/ParseExpr.cpp
      // Consume the identifier so that we can see if it is followed by a '(' or
      // '.'.
      IdentifierInfo &II = *Tok.getIdentifierInfo();
-@@ -659,27 +673,53 @@
+@@ -659,27 +679,53 @@
      // the token sequence is ill-formed. However, if there's a ':' or ']' after
      // that identifier, this is probably a message send with a missing open
      // bracket. Treat it as such. 
@@ -2781,7 +2796,7 @@ Index: lib/Parse/ParseExpr.cpp
 +    // send.
 +    if (getLang().Eero && 
 +        (Tok.is(tok::identifier) || Tok.is(tok::colon)) &&
-+//        !InMessageExpression && 
++        !InMessageExpression && 
 +        (!Tok.isAtStartOfLine() || (ParenCount > 0) || (BracketCount > 0))) {
 +      LooksLikeMessageExpr = true;
 +      MessageExprStartLoc = ILoc;
@@ -2809,7 +2824,7 @@ Index: lib/Parse/ParseExpr.cpp
          if (ParsedType Typ = Actions.getTypeName(II, ILoc, getCurScope()))
            if (Typ.get()->isObjCObjectOrInterfaceType()) {
              // Fake up a Declarator to use with ActOnTypeName.
-@@ -696,7 +736,7 @@
+@@ -696,7 +742,7 @@
              if (Ty.isInvalid())
                break;
              
@@ -2818,7 +2833,7 @@ Index: lib/Parse/ParseExpr.cpp
                                                   SourceLocation(), 
                                                   Ty.get(), 0);
              break;
-@@ -718,9 +758,15 @@
+@@ -718,9 +764,15 @@
      break;
    }
    case tok::char_constant:     // constant: character-constant
@@ -2837,7 +2852,7 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::kw___func__:       // primary-expression: __func__ [C99 6.4.2.2]
    case tok::kw___FUNCTION__:   // primary-expression: __FUNCTION__ [GNU]
    case tok::kw___PRETTY_FUNCTION__:  // primary-expression: __P..Y_F..N__ [GNU]
-@@ -1012,6 +1058,10 @@
+@@ -1012,6 +1064,10 @@
      ConsumeCodeCompletionToken();
      return ParseCastExpression(isUnaryExpression, isAddressOfOperand, 
                                 NotCastExpr, TypeOfCast);
@@ -2848,7 +2863,7 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::l_square:
      // These can be followed by postfix-expr pieces.
      if (getLang().ObjC1)
-@@ -1050,6 +1100,13 @@
+@@ -1050,6 +1106,13 @@
    // parsed, see if there are any postfix-expression pieces here.
    SourceLocation Loc;
    while (1) {
@@ -2862,7 +2877,7 @@ Index: lib/Parse/ParseExpr.cpp
      switch (Tok.getKind()) {
      case tok::code_completion:
        if (InMessageExpression)
-@@ -1061,10 +1118,25 @@
+@@ -1061,10 +1124,25 @@
        break;
          
      case tok::identifier:
@@ -2889,7 +2904,7 @@ Index: lib/Parse/ParseExpr.cpp
            (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) {
          LHS = ParseObjCMessageExpressionBody(SourceLocation(), SourceLocation(),
                                               ParsedType(), LHS.get());
-@@ -1092,6 +1164,21 @@
+@@ -1092,6 +1170,21 @@
        SourceLocation RLoc = Tok.getLocation();
  
        if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
@@ -2911,7 +2926,7 @@ Index: lib/Parse/ParseExpr.cpp
          LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.take(), Loc,
                                                Idx.take(), RLoc);
        } else
-@@ -1650,6 +1737,20 @@
+@@ -1650,6 +1743,20 @@
        Ty = ParseTypeName();
      }
      
@@ -2932,7 +2947,7 @@ Index: lib/Parse/ParseExpr.cpp
      // If our type is followed by an identifier and either ':' or ']', then 
      // this is probably an Objective-C message send where the leading '[' is
      // missing. Recover as if that were the case.
-@@ -1889,7 +1990,7 @@
+@@ -1889,7 +1996,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -2941,7 +2956,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1909,7 +2010,7 @@
+@@ -1909,7 +2016,7 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -2950,7 +2965,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1930,6 +2031,10 @@
+@@ -1930,6 +2037,10 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
