@@ -2729,7 +2729,7 @@ Index: lib/Parse/ParseExpr.cpp
      return ParseThrowExpression();
  
    ExprResult LHS(ParseCastExpression(false));
-+  if (getLang().Eero &&                        // TODO: revisit all this
++  if (getLang().Eero && !LHS.isInvalid() &&    // TODO: revisit all this
 +      Tok.isAtStartOfLine() && (ParenCount == 0) && (BracketCount == 0) &&
 +      !InSystemHeader(Tok.getLocation()) &&
 +      !Tok.isObjCAtKeyword(tok::objc_catch) && 
