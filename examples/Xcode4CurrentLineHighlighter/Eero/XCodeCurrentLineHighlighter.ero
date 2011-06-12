@@ -57,7 +57,7 @@ static load
   // This library will get loaded by every subprocess that gets spawned,
   // so make sure to ignore anything but the main Xcode application.
   //
-  if [[ProcessInfo processInfo] processName] == 'Xcode'
+  if (ProcessInfo processInfo) processName == 'Xcode'
 
     // NSLog(@"Xcode current line highlighter plugin loaded");
      
@@ -97,7 +97,7 @@ init, return id
 //-----------------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------------
 dealloc
-  [NotificationCenter defaultCenter] removeObserver self
+  (NotificationCenter defaultCenter) removeObserver self
   super dealloc
 
 
@@ -123,13 +123,14 @@ loadHighlightColor
 
   UserDefaults userDefaults := standardUserDefaults
 
-  Data colorAsData = userDefaults objectForKey [self highlightColorDefaultsKeyName]
+  Data colorAsData = userDefaults[self highlightColorDefaultsKeyName]
 
   if colorAsData != nil
     Color color = KeyedUnarchiver unarchiveObjectWithData colorAsData
 
     highlightColorAttributes = 
-        Dictionary dictionaryWithObjectsAndKeys: color, NSBackgroundColorAttributeName
+        Dictionary dictionaryWithObject color, 
+                                 forKey NSBackgroundColorAttributeName
 
 
 //-----------------------------------------------------------------------------------------------
@@ -137,7 +138,7 @@ loadHighlightColor
 saveHighlightColor Color
   Data colorAsData = KeyedArchiver archivedDataWithRootObject color
   UserDefaults userDefaults := standardUserDefaults
-  userDefaults setObject colorAsData, forKey [self highlightColorDefaultsKeyName]
+  userDefaults[self highlightColorDefaultsKeyName] = colorAsData
 
 
 //-----------------------------------------------------------------------------------------------
@@ -145,10 +146,10 @@ saveHighlightColor Color
 highlightLineInView TextView, containingRange Range | range
 
   try
-    [view layoutManager] addTemporaryAttributes highlightColorAttributes,
-                              forCharacterRange [[view string] lineRangeForRange range]
+    (view layoutManager) addTemporaryAttributes highlightColorAttributes,
+                              forCharacterRange ([view string] lineRangeForRange range)
   catch Exception exception
-    if [exception name] != NSRangeException
+    if exception name != NSRangeException
       throw exception
 
 
@@ -157,10 +158,10 @@ highlightLineInView TextView, containingRange Range | range
 removeHighlightFromLineInView TextView, containingRange Range | range
 
   try
-    [view layoutManager] removeTemporaryAttribute NSBackgroundColorAttributeName,
-                                forCharacterRange [[view string] lineRangeForRange range]
+    (view layoutManager) removeTemporaryAttribute NSBackgroundColorAttributeName,
+                                forCharacterRange ([view string] lineRangeForRange range)
   catch Exception exception
-    if [exception name] != NSRangeException
+    if exception name != NSRangeException
       throw exception;
 
 
@@ -170,12 +171,12 @@ selectHighlightColor id | sender // unused
 
   ColorPanel colorPanel := sharedColorPanel
 
-  Color color = highlightColorAttributes objectForKey NSBackgroundColorAttributeName
+  Color color = highlightColorAttributes[NSBackgroundColorAttributeName]
   colorPanel setColor color
   colorPanel setTarget self
-  colorPanel setAction selector(changeColor:)
+  colorPanel setAction selector( changeColor: )
 
-  [NotificationCenter defaultCenter] addObserver self,
+  (NotificationCenter defaultCenter) addObserver self,
                                         selector selector( colorPanelWillClose: ),
                                             name NSWindowWillCloseNotification,
                                           object colorPanel
@@ -189,9 +190,10 @@ changeColor id | sender // unused
   ColorPanel colorPanel := sharedColorPanel
 
   highlightColorAttributes = 
-      Dictionary dictionaryWithObjectsAndKeys: [colorPanel color],
-                                               NSBackgroundColorAttributeName
-  self saveHighlightColor [colorPanel color]
+      Dictionary dictionaryWithObject (colorPanel color),
+                               forKey NSBackgroundColorAttributeName
+
+  self saveHighlightColor (colorPanel color)
                                                     
   // Update window size (grow then back to what it was) in order to cause frame
   // change even. This is because we can't have a guaranteed valid reference to
@@ -214,7 +216,7 @@ colorPanelWillClose Notification // unused
 
   ColorPanel colorPanel := sharedColorPanel
 
-  [NotificationCenter defaultCenter] removeObserver self,
+  (NotificationCenter defaultCenter) removeObserver self,
                                                name NSWindowWillCloseNotification,
                                              object colorPanel
   colorPanel setTarget nil
@@ -226,21 +228,21 @@ colorPanelWillClose Notification // unused
 addItemToApplicationMenu
 
   Menu mainMenu = NSApp mainMenu
-  Menu editorMenu = [mainMenu itemAtIndex [mainMenu indexOfItemWithTitle 'Editor']] submenu
+  Menu editorMenu = (mainMenu itemWithTitle 'Editor') submenu
 
-  if editorMenu != nil and
+  if (editorMenu != nil) and
      (editorMenu numberOfItems > [self highlightColorMenuItemIndex]) and
-     [editorMenu itemWithTitle [self highlightColorMenuItemTitle]] == nil
+     ([editorMenu itemWithTitle (self highlightColorMenuItemTitle)] == nil)
 
     MenuItem newItem := new
 
-    newItem setTitle [self highlightColorMenuItemTitle]  // note: not localized
+    newItem setTitle (self highlightColorMenuItemTitle)  // note: not localized
     newItem setTarget self
     newItem setAction selector( selectHighlightColor: )
     newItem setEnabled YES
 
     editorMenu insertItem newItem, 
-                  atIndex [self highlightColorMenuItemIndex]
+                  atIndex (self highlightColorMenuItemIndex)
 
 
 //-----------------------------------------------------------------------------------------------
@@ -263,7 +265,7 @@ frameChanged Notification | notification
     self addItemToApplicationMenu
 
     self highlightLineInView view,
-             containingRange [view selectedRange]
+             containingRange (view selectedRange)
 
 
 //----------------------------------------------------------------------------------------------- 
@@ -276,7 +278,7 @@ selectionChanged Notification | notification
   if view isMemberOfClass sourceEditorViewClass
 
     id info = notification userInfo
-    Range oldRange = [info objectForKey 'NSOldSelectedCharacterRange'] rangeValue
+    Range oldRange = info['NSOldSelectedCharacterRange'] rangeValue
     Range newRange = view selectedRange
 
     self removeHighlightFromLineInView view, containingRange oldRange
