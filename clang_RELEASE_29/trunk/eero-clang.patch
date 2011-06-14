@@ -581,7 +581,7 @@ Index: lib/Sema/SemaDecl.cpp
      }
    }
  
-@@ -3375,8 +3378,14 @@
+@@ -3375,8 +3378,30 @@
    QualType T = NewVD->getType();
  
    if (T->isObjCObjectType()) {
@@ -592,13 +592,29 @@ Index: lib/Sema/SemaDecl.cpp
 +      return NewVD->setInvalidDecl();
 +    } else {
 +      QualType objectType = Context.getObjCObjectType( T, 0, 0 );  
++      // If const qualifier is present, remove it from the pointed-to data,
++      // and add it to the variable itself. This is to make something like
++      //      const String string = 'abc'
++      // equivalent to
++      //      typedef NSString* StringType
++      //      const StringType string = 'abc'
++      bool isConst;
++      if (objectType.isLocalConstQualified()) {
++        isConst = true;
++        objectType.removeLocalConst();
++      } else {
++        isConst = false;
++      }      
 +      QualType pointerType = Context.getObjCObjectPointerType(objectType);
++      if (isConst) {
++        pointerType.addConst();
++      }
 +      NewVD->setType(pointerType);                    
 +    }
    }
  
    // Emit an error if an address space was applied to decl with local storage.
-@@ -6728,7 +6737,8 @@
+@@ -6728,7 +6753,8 @@
  
    // C99 6.7.2.1p4 - verify the field type.
    // C++ 9.6p3: A bit-field shall have integral or enumeration type.
@@ -608,7 +624,7 @@ Index: lib/Sema/SemaDecl.cpp
      // Handle incomplete types with specific error.
      if (RequireCompleteType(FieldLoc, FieldTy, diag::err_field_incomplete))
        return true;
-@@ -7464,10 +7474,16 @@
+@@ -7464,10 +7490,16 @@
          Record->setHasObjectMember(true);
      } else if (FDTy->isObjCObjectType()) {
        /// A field cannot be an Objective-c object
@@ -629,7 +645,7 @@ Index: lib/Sema/SemaDecl.cpp
      } else if (getLangOptions().ObjC1 &&
                 getLangOptions().getGCMode() != LangOptions::NonGC &&
                 Record &&
-@@ -7819,12 +7835,29 @@
+@@ -7819,12 +7851,29 @@
      assert((getLangOptions().CPlusPlus || !isa<TagDecl>(PrevDecl)) &&
             "Received TagDecl when not in C++!");
      if (!isa<TagDecl>(PrevDecl) && isDeclInScope(PrevDecl, CurContext, S)) {
@@ -664,7 +680,7 @@ Index: lib/Sema/SemaDecl.cpp
      }
    }
  
-@@ -7848,7 +7881,12 @@
+@@ -7848,7 +7897,12 @@
  
      // Register this decl in the current scope stack.
      New->setAccess(TheEnumDecl->getAccess());
@@ -678,7 +694,7 @@ Index: lib/Sema/SemaDecl.cpp
    }
  
    return New;
-@@ -8055,7 +8093,8 @@
+@@ -8055,7 +8109,8 @@
                                                  ECD->getInitExpr(),
                                                  /*base paths*/ 0,
                                                  VK_RValue));
@@ -688,7 +704,7 @@ Index: lib/Sema/SemaDecl.cpp
        // C++ [dcl.enum]p4: Following the closing brace of an
        // enum-specifier, each enumerator has the type of its
        // enumeration.
-@@ -8068,6 +8107,12 @@
+@@ -8068,6 +8123,12 @@
                             NumPositiveBits, NumNegativeBits);
  }
  
