@@ -1214,7 +1214,7 @@ Index: lib/Sema/SemaExpr.cpp
    // This check seems unnatural, however it is necessary to ensure the proper
    // conversion of functions/arrays. If the conversion were done for all
    // DeclExpr's (created by ActOnIdExpression), it would mess up the unary
-@@ -7970,6 +8124,27 @@
+@@ -7970,6 +8124,29 @@
        << lhs->getSourceRange() << rhs->getSourceRange();
  }
  
@@ -1234,6 +1234,8 @@ Index: lib/Sema/SemaExpr.cpp
 +    case tok::lessequal:      SelectorName = "isGreater"; invert = true; break;      
 +    case tok::greater:        SelectorName = "isGreater"; break;
 +    case tok::greaterequal:   SelectorName = "isLess"; invert = true; break;
++    case tok::lessless:       SelectorName = "shiftLeft"; break;
++    case tok::greatergreater: SelectorName = "shiftRight"; break;
 +    default:; // do nothing, leaving SelectorName empty
 +  }
 +  return SelectorName;
@@ -1242,7 +1244,7 @@ Index: lib/Sema/SemaExpr.cpp
  /// CreateBuiltinBinOp - Creates a new built-in binary operation with
  /// operator @p Opc at location @c TokLoc. This routine only supports
  /// built-in operations; ActOnBinOp handles overloaded operators.
-@@ -8276,6 +8451,13 @@
+@@ -8276,6 +8453,13 @@
    assert((lhs != 0) && "ActOnBinOp(): missing left expression");
    assert((rhs != 0) && "ActOnBinOp(): missing right expression");
  
@@ -1256,7 +1258,7 @@ Index: lib/Sema/SemaExpr.cpp
    // Emit warnings for tricky precedence issues, e.g. "bitfield & 0x4 == 0"
    DiagnoseBinOpPrecedence(*this, Opc, TokLoc, lhs, rhs);
  
-@@ -8454,6 +8636,18 @@
+@@ -8454,6 +8638,18 @@
  // Unary Operators.  'Tok' is the token for the operator.
  ExprResult Sema::ActOnUnaryOp(Scope *S, SourceLocation OpLoc,
                                tok::TokenKind Op, Expr *Input) {
@@ -1275,7 +1277,7 @@ Index: lib/Sema/SemaExpr.cpp
    return BuildUnaryOp(S, OpLoc, ConvertTokenKindToUnaryOpcode(Op), Input);
  }
  
-@@ -9728,3 +9922,312 @@
+@@ -9728,3 +9924,312 @@
    Diag(Loc, diag::err_ovl_unresolvable) << E->getSourceRange();
    return ExprError();
  }
