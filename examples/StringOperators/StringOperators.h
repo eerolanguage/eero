@@ -34,8 +34,10 @@
 
 #import <Cocoa/Cocoa.h>
 
-// Category for Eero string operators. Written in Objective-C to minimize
+// Categories for Eero string operators. Written in Objective-C to minimize
 // changes to this library as changes are mode to Eero itself.
+
+// NSString operator category
 //
 @interface NSString (eero_operators)
 
@@ -64,7 +66,23 @@
 //
 - (id) objectAtIndex: (NSUInteger)index;
 
+// Use this string as a prefix for a supplied NSMutableString.
+// For chaining, returns the NSMutableString operand.
+//
+- (NSMutableString*) shiftRight: (NSMutableString*)aMutableString;
 
 @end
+
+
+// NSMutableString operator category
+//
+@interface NSMutableString (eero_operators)
+
+// Simple append operator. For chaining, returns self.
+//
+- (NSMutableString*) shiftLeft: (NSString*)aString;
+
+@end
+
 
 
