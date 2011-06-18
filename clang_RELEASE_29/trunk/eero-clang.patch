@@ -2662,7 +2662,21 @@ Index: lib/Parse/ParseObjc.cpp
        ///  Parse the expression after ':'
        
        if (Tok.is(tok::code_completion)) {
-@@ -2155,12 +2449,27 @@
+@@ -2122,7 +2416,12 @@
+         return ExprError();
+       }
+       
+-      ExprResult Res(ParseAssignmentExpression());
++      ExprResult Res;
++      if (!getLang().Eero) {
++        Res = ParseAssignmentExpression();
++      } else {
++        Res = ParseCastExpression(false); // make higher prec than assignment
++      }
+       if (Res.isInvalid()) {
+         // We must manually skip to a ']', otherwise the expression skipper will
+         // stop at the ']' when it skips to the ';'.  We want it to skip beyond
+@@ -2155,18 +2454,38 @@
          SkipUntil(tok::r_square);
          return ExprError();
        }
@@ -2696,7 +2710,19 @@ Index: lib/Parse/ParseObjc.cpp
      }
      // Parse the, optional, argument list, comma separated.
      while (Tok.is(tok::comma)) {
-@@ -2187,21 +2496,41 @@
+       ConsumeToken(); // Eat the ','.
+       ///  Parse the expression after ','
+-      ExprResult Res(ParseAssignmentExpression());
++      ExprResult Res;
++      if (!getLang().Eero) {
++        Res = ParseAssignmentExpression();
++      } else {
++        Res = ParseCastExpression(false); // make higher prec than assignment
++      }
+       if (Res.isInvalid()) {
+         // We must manually skip to a ']', otherwise the expression skipper will
+         // stop at the ']' when it skips to the ';'.  We want it to skip beyond
+@@ -2187,21 +2506,41 @@
      SkipUntil(tok::r_square);
      return ExprError();
    }
@@ -2751,7 +2777,7 @@ Index: lib/Parse/ParseObjc.cpp
    unsigned nKeys = KeyIdents.size();
    if (nKeys == 0)
      KeyIdents.push_back(selIdent);
-@@ -2364,3 +2693,20 @@
+@@ -2364,3 +2703,20 @@
    return Owned(Actions.ParseObjCSelectorExpression(Sel, AtLoc, SelectorLoc,
                                                     LParenLoc, RParenLoc));
   }
