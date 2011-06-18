@@ -58,6 +58,20 @@ Index: include/clang/Basic/DiagnosticSemaKinds.td
  // C++ casts
  // These messages adhere to the TryCast pattern: %0 is an int specifying the
  // cast type, %1 is the source type, %2 is the destination type.
+Index: include/clang/Basic/TokenKinds.def
+===================================================================
+--- include/clang/Basic/TokenKinds.def	(revision 129311)
++++ include/clang/Basic/TokenKinds.def	(working copy)
+@@ -177,6 +177,9 @@
+ // Objective C support.
+ PUNCTUATOR(at,                  "@")
+ 
++// Eero support
++PUNCTUATOR(backslash,           "\\")
++
+ // CUDA support.
+ PUNCTUATOR(lesslessless,          "<<<")
+ PUNCTUATOR(greatergreatergreater, ">>>")
 Index: include/clang/Basic/DiagnosticParseKinds.td
 ===================================================================
 --- include/clang/Basic/DiagnosticParseKinds.td	(revision 129311)
@@ -1607,6 +1621,21 @@ Index: lib/AST/Type.cpp
  
  bool Type::isBooleanType() const {
    if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+Index: lib/Lex/Lexer.cpp
+===================================================================
+--- lib/Lex/Lexer.cpp	(revision 129311)
++++ lib/Lex/Lexer.cpp	(working copy)
+@@ -2474,6 +2474,10 @@
+     break;
+ 
+   case '\\':
++    if (Features.Eero) {
++      Kind = tok::backslash;
++      break;
++    }
+     // FIXME: UCN's.
+     // FALL THROUGH.
+   default:
 Index: lib/Lex/LiteralSupport.cpp
 ===================================================================
 --- lib/Lex/LiteralSupport.cpp	(revision 129311)
@@ -2899,8 +2928,14 @@ Index: lib/Parse/ParseExpr.cpp
      switch (Tok.getKind()) {
      case tok::code_completion:
        if (InMessageExpression)
-@@ -1061,10 +1124,25 @@
+@@ -1059,12 +1122,31 @@
+       ConsumeCodeCompletionToken();
+       LHS = ExprError();
        break;
++
++    case tok::backslash: // Eero-specific expression delimiter
++        ConsumeAnyToken(); // consume '\'
++        continue;
          
      case tok::identifier:
 +    case tok::colon:      // added for Eero anonymous selector support
@@ -2926,7 +2961,7 @@ Index: lib/Parse/ParseExpr.cpp
            (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) {
          LHS = ParseObjCMessageExpressionBody(SourceLocation(), SourceLocation(),
                                               ParsedType(), LHS.get());
-@@ -1092,6 +1170,21 @@
+@@ -1092,6 +1174,21 @@
        SourceLocation RLoc = Tok.getLocation();
  
        if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
@@ -2948,7 +2983,7 @@ Index: lib/Parse/ParseExpr.cpp
          LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.take(), Loc,
                                                Idx.take(), RLoc);
        } else
-@@ -1650,6 +1743,20 @@
+@@ -1650,6 +1747,20 @@
        Ty = ParseTypeName();
      }
      
@@ -2969,7 +3004,7 @@ Index: lib/Parse/ParseExpr.cpp
      // If our type is followed by an identifier and either ':' or ']', then 
      // this is probably an Objective-C message send where the leading '[' is
      // missing. Recover as if that were the case.
-@@ -1889,7 +1996,7 @@
+@@ -1889,7 +2000,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -2978,7 +3013,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1909,7 +2016,7 @@
+@@ -1909,7 +2020,7 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -2987,7 +3022,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1930,6 +2037,10 @@
+@@ -1930,6 +2041,10 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
