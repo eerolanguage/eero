@@ -995,7 +995,32 @@ Index: lib/Sema/SemaExprObjC.cpp
 ===================================================================
 --- lib/Sema/SemaExprObjC.cpp	(revision 129311)
 +++ lib/Sema/SemaExprObjC.cpp	(working copy)
-@@ -665,7 +665,7 @@
+@@ -443,6 +443,12 @@
+   // If that failed, look for an "implicit" property by seeing if the nullary
+   // selector is implemented.
+ 
++  if (getLangOptions().Eero) { // Eero only allows dot notation on explicit properties
++    Diag(MemberLoc, diag::err_property_not_found)
++      << MemberName << QualType(OPT, 0);
++    return ExprError();
++  }
++
+   // FIXME: The logic for looking up nullary and unary selectors should be
+   // shared with the code in ActOnInstanceMessage.
+ 
+@@ -584,6 +590,11 @@
+     }
+   }
+ 
++  if (getLangOptions().Eero) { // Eero only allows dot notation on explicit properties
++    return ExprError(Diag(propertyNameLoc, diag::err_property_not_found)
++                       << &propertyName << Context.getObjCInterfaceType(IFace));
++  }
++
+   // Search for a declared property first.
+   Selector Sel = PP.getSelectorTable().getNullarySelector(&propertyName);
+   ObjCMethodDecl *Getter = IFace->lookupClassMethod(Sel);
+@@ -665,7 +676,7 @@
      return HasTrailingDot? ObjCInstanceMessage : ObjCSuperMessage;
    
    LookupResult Result(*this, Name, NameLoc, LookupOrdinaryName);
@@ -1004,7 +1029,7 @@ Index: lib/Sema/SemaExprObjC.cpp
    
    switch (Result.getResultKind()) {
    case LookupResult::NotFound:
-@@ -841,7 +841,7 @@
+@@ -841,7 +852,7 @@
                                     MultiExprArg ArgsIn) {
    SourceLocation Loc = SuperLoc.isValid()? SuperLoc
      : ReceiverTypeInfo->getTypeLoc().getSourceRange().getBegin();
@@ -1013,7 +1038,7 @@ Index: lib/Sema/SemaExprObjC.cpp
      Diag(Loc, diag::err_missing_open_square_message_send)
        << FixItHint::CreateInsertion(Loc, "[");
      LBracLoc = Loc;
-@@ -984,7 +984,7 @@
+@@ -984,7 +995,7 @@
    // The location of the receiver.
    SourceLocation Loc = SuperLoc.isValid()? SuperLoc : Receiver->getLocStart();
    
