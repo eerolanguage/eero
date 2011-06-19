@@ -45,6 +45,11 @@ interface XCodeCurrentLineHighlighter : Object
     Class       sourceEditorViewClass
     Dictionary  highlightColorAttributes
 }
+
+  property (readonly) String*  highlightColorDefaultsKeyName  // bug filed for '*" here
+  property (readonly) String*  highlightColorMenuItemTitle    // bug filed for '*' here
+  property (readonly) UInteger highlightColorMenuItemIndex
+
 end
 
 
@@ -54,10 +59,13 @@ implementation XCodeCurrentLineHighlighter
 // This class method gets called when the library is loaded
 //-----------------------------------------------------------------------------------------------
 static load
+
+  ProcessInfo thisProcess := processInfo
+
   // This library will get loaded by every subprocess that gets spawned,
   // so make sure to ignore anything but the main Xcode application.
   //
-  if (ProcessInfo processInfo) processName == 'Xcode'
+  if thisProcess processName == 'Xcode'
 
     // NSLog(@"Xcode current line highlighter plugin loaded");
      
@@ -123,7 +131,7 @@ loadHighlightColor
 
   UserDefaults userDefaults := standardUserDefaults
 
-  Data colorAsData = userDefaults[self highlightColorDefaultsKeyName]
+  Data colorAsData = userDefaults[self.highlightColorDefaultsKeyName]
 
   if colorAsData != nil
     Color color = KeyedUnarchiver unarchiveObjectWithData colorAsData
@@ -138,7 +146,7 @@ loadHighlightColor
 saveHighlightColor Color
   Data colorAsData = KeyedArchiver archivedDataWithRootObject color
   UserDefaults userDefaults := standardUserDefaults
-  userDefaults[self highlightColorDefaultsKeyName] = colorAsData
+  userDefaults[self.highlightColorDefaultsKeyName] = colorAsData
 
 
 //-----------------------------------------------------------------------------------------------
@@ -228,21 +236,21 @@ colorPanelWillClose Notification // unused
 addItemToApplicationMenu
 
   Menu mainMenu = NSApp mainMenu
-  Menu editorMenu = (mainMenu itemWithTitle 'Editor') submenu
+  Menu editorMenu = mainMenu itemWithTitle 'Editor' \ submenu
 
   if (editorMenu != nil) and
-     (editorMenu numberOfItems > [self highlightColorMenuItemIndex]) and
-     ([editorMenu itemWithTitle (self highlightColorMenuItemTitle)] == nil)
+     (editorMenu numberOfItems > self.highlightColorMenuItemIndex) and
+     (editorMenu itemWithTitle self.highlightColorMenuItemTitle == nil)
 
     MenuItem newItem := new
 
-    newItem setTitle (self highlightColorMenuItemTitle)  // note: not localized
+    newItem setTitle self.highlightColorMenuItemTitle  // note: not localized
     newItem setTarget self
     newItem setAction selector( selectHighlightColor: )
     newItem setEnabled YES
 
     editorMenu insertItem newItem, 
-                  atIndex (self highlightColorMenuItemIndex)
+                  atIndex self.highlightColorMenuItemIndex
 
 
 //-----------------------------------------------------------------------------------------------
@@ -278,7 +286,7 @@ selectionChanged Notification | notification
   if view isMemberOfClass sourceEditorViewClass
 
     id info = notification userInfo
-    Range oldRange = info['NSOldSelectedCharacterRange'] rangeValue
+    Range oldRange = info['NSOldSelectedCharacterRange'] \ rangeValue
     Range newRange = view selectedRange
 
     self removeHighlightFromLineInView view, containingRange oldRange
