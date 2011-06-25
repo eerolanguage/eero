@@ -76,7 +76,7 @@ Index: include/clang/Basic/DiagnosticParseKinds.td
 ===================================================================
 --- include/clang/Basic/DiagnosticParseKinds.td	(revision 129311)
 +++ include/clang/Basic/DiagnosticParseKinds.td	(working copy)
-@@ -286,6 +286,13 @@
+@@ -286,6 +286,15 @@
    "declaration does not declare a parameter">;
  def err_no_matching_param : Error<"parameter named %0 is missing">;
  
@@ -85,6 +85,8 @@ Index: include/clang/Basic/DiagnosticParseKinds.td
 +def err_goto_statement_forbidden : Error<"goto statement is forbidden">;
 +def err_lbrace_not_allowed : Error<"'{' not allowed here">;
 +def err_rbrace_not_allowed : Error<"'}' not allowed here">;
++def err_expected_pipe : Error<"expected '|'">;
++def err_expected_expression_after : Error<"expected expression after '%0'">;
 +
 +
  /// C++ parser diagnostics
@@ -1937,6 +1939,15 @@ Index: lib/Parse/ParseDecl.cpp
      }
  
      // Install the enumerator constant into EnumDecl.
+@@ -2392,7 +2430,7 @@
+ 
+     // GNU ObjC bizarre protocol extension: <proto1,proto2> with implicit 'id'.
+   case tok::less:
+-    return getLang().ObjC1;
++    return getLang().ObjC1 && !getLang().Eero;
+ 
+   case tok::kw___cdecl:
+   case tok::kw___stdcall:
 @@ -2420,6 +2458,11 @@
        return false;
      if (TryAltiVecVectorToken())
@@ -1960,6 +1971,15 @@ Index: lib/Parse/ParseDecl.cpp
    case tok::kw_extern:
    case tok::kw___private_extern__:
    case tok::kw_static:
+@@ -2512,7 +2559,7 @@
+ 
+     // GNU ObjC bizarre protocol extension: <proto1,proto2> with implicit 'id'.
+   case tok::less:
+-    return getLang().ObjC1;
++    return getLang().ObjC1 && !getLang().Eero;
+ 
+   case tok::kw___declspec:
+   case tok::kw___cdecl:
 @@ -2979,7 +3026,7 @@
    if (D.getIdentifier())
      MaybeParseCXX0XAttributes(D);
@@ -2656,7 +2676,7 @@ Index: lib/Parse/ParseObjc.cpp
    if (Tok.is(tok::code_completion)) {
      Actions.CodeCompleteObjCMessageReceiver(getCurScope());
      ConsumeCodeCompletionToken();
-@@ -2083,21 +2351,47 @@
+@@ -2083,21 +2351,46 @@
    llvm::SmallVector<IdentifierInfo *, 12> KeyIdents;
    ExprVector KeyExprs(Actions);
  
@@ -2671,12 +2691,11 @@ Index: lib/Parse/ParseObjc.cpp
 +             selIdent && 
 +             !Tok.isAtStartOfLine() &&
 +             (Tok.is(tok::identifier) || 
-+              Tok.is(tok::numeric_constant) || 
-+              Tok.is(tok::char_constant) || 
-+              Tok.is(tok::string_literal) || 
-+              Tok.is(tok::wide_string_literal) || 
-+              Tok.is(tok::l_square)|| 
-+              Tok.is(tok::l_paren))) {
++              Tok.isLiteral() ||
++              Tok.is(tok::l_square) || 
++              Tok.is(tok::l_paren)  ||
++              Tok.is(tok::pipe) ||  // for selector "literals"
++              Tok.is(tok::less))) { // for protocol "literals"
 +    parseArguments = true;
 +  }   
 +
@@ -2712,7 +2731,7 @@ Index: lib/Parse/ParseObjc.cpp
        ///  Parse the expression after ':'
        
        if (Tok.is(tok::code_completion)) {
-@@ -2122,7 +2416,12 @@
+@@ -2122,7 +2415,12 @@
          return ExprError();
        }
        
@@ -2726,7 +2745,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2155,18 +2454,38 @@
+@@ -2155,18 +2453,38 @@
          SkipUntil(tok::r_square);
          return ExprError();
        }
@@ -2772,7 +2791,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2187,21 +2506,41 @@
+@@ -2187,21 +2505,41 @@
      SkipUntil(tok::r_square);
      return ExprError();
    }
@@ -2827,7 +2846,111 @@ Index: lib/Parse/ParseObjc.cpp
    unsigned nKeys = KeyIdents.size();
    if (nKeys == 0)
      KeyIdents.push_back(selIdent);
-@@ -2364,3 +2703,20 @@
+@@ -2284,7 +2622,13 @@
+ ///       @protocol ( protocol-name )
+ ExprResult
+ Parser::ParseObjCProtocolExpression(SourceLocation AtLoc) {
+-  SourceLocation ProtoLoc = ConsumeToken();
++  SourceLocation ProtoLoc;
++  if (!getLang().Eero || !Tok.is(tok::less)) { 
++    ProtoLoc = ConsumeToken();
++  } else {
++    ProtoLoc = Tok.getLocation();
++    Tok.setKind(tok::l_paren);
++  }
+ 
+   if (Tok.isNot(tok::l_paren))
+     return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@protocol");
+@@ -2297,6 +2641,15 @@
+   IdentifierInfo *protocolId = Tok.getIdentifierInfo();
+   ConsumeToken();
+ 
++  if (ProtoLoc == LParenLoc) { // if using Eero's <> notation
++    if (Tok.is(tok::greater)) {
++      Tok.setKind(tok::r_paren);
++    } else {
++      Diag(Tok, diag::err_expected_greater);
++      Diag(LParenLoc, diag::note_matching) << "<";
++      return ExprError();
++    }
++  }
+   SourceLocation RParenLoc = MatchRHSPunctuation(tok::r_paren, LParenLoc);
+ 
+   return Owned(Actions.ParseObjCProtocolExpression(protocolId, AtLoc, ProtoLoc,
+@@ -2306,7 +2659,16 @@
+ ///     objc-selector-expression
+ ///       @selector '(' objc-keyword-selector ')'
+ ExprResult Parser::ParseObjCSelectorExpression(SourceLocation AtLoc) {
+-  SourceLocation SelectorLoc = ConsumeToken();
++  SourceLocation SelectorLoc;
++  tok::TokenKind r_token_kind;
++  if (!getLang().Eero || !Tok.is(tok::pipe)) { 
++    SelectorLoc = ConsumeToken();
++    r_token_kind = tok::r_paren;
++  } else {
++    SelectorLoc = Tok.getLocation();
++    Tok.setKind(tok::l_paren); // make parens for approp newline rules
++    r_token_kind = tok::pipe;
++  }
+ 
+   if (Tok.isNot(tok::l_paren))
+     return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@selector");
+@@ -2319,7 +2681,7 @@
+     Actions.CodeCompleteObjCSelector(getCurScope(), KeyIdents.data(),
+                                      KeyIdents.size());
+     ConsumeCodeCompletionToken();
+-    MatchRHSPunctuation(tok::r_paren, LParenLoc);
++    MatchRHSPunctuation(r_token_kind, LParenLoc);
+     return ExprError();
+   }
+   
+@@ -2330,24 +2692,27 @@
+ 
+   KeyIdents.push_back(SelIdent);
+   unsigned nColons = 0;
+-  if (Tok.isNot(tok::r_paren)) {
++  if (Tok.isNot(r_token_kind)) {
+     while (1) {
+       if (Tok.is(tok::coloncolon)) { // Handle :: in C++.
+         ++nColons;
+         KeyIdents.push_back(0);
+       } else if (Tok.isNot(tok::colon))
+-        return ExprError(Diag(Tok, diag::err_expected_colon));
++        if (!getLang().Eero)
++          return ExprError(Diag(Tok, diag::err_expected_colon));
++        else
++          Diag(Tok, diag::err_expected_colon);
+ 
+       ++nColons;
+       ConsumeToken(); // Eat the ':'.
+-      if (Tok.is(tok::r_paren))
++      if (Tok.is(r_token_kind))
+         break;
+       
+       if (Tok.is(tok::code_completion)) {
+         Actions.CodeCompleteObjCSelector(getCurScope(), KeyIdents.data(),
+                                          KeyIdents.size());
+         ConsumeCodeCompletionToken();
+-        MatchRHSPunctuation(tok::r_paren, LParenLoc);
++        MatchRHSPunctuation(r_token_kind, LParenLoc);
+         return ExprError();
+       }
+ 
+@@ -2359,8 +2724,34 @@
+         break;
+     }
+   }
++  if (getLang().Eero && (r_token_kind == tok::pipe)) {
++    if (Tok.is(tok::pipe)) {
++      Tok.setKind(tok::r_paren); // make parens for approp newline rules
++    } else {
++      Diag(Tok, diag::err_expected_pipe);
++      Diag(LParenLoc, diag::note_matching) << "|";
++      return ExprError();
++    }
++  }
+   SourceLocation RParenLoc = MatchRHSPunctuation(tok::r_paren, LParenLoc);
+   Selector Sel = PP.getSelectorTable().getSelector(nColons, &KeyIdents[0]);
    return Owned(Actions.ParseObjCSelectorExpression(Sel, AtLoc, SelectorLoc,
                                                     LParenLoc, RParenLoc));
   }
@@ -2979,10 +3102,19 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::kw___func__:       // primary-expression: __func__ [C99 6.4.2.2]
    case tok::kw___FUNCTION__:   // primary-expression: __FUNCTION__ [GNU]
    case tok::kw___PRETTY_FUNCTION__:  // primary-expression: __P..Y_F..N__ [GNU]
-@@ -1012,6 +1064,10 @@
+@@ -1012,6 +1064,19 @@
      ConsumeCodeCompletionToken();
      return ParseCastExpression(isUnaryExpression, isAddressOfOperand, 
                                 NotCastExpr, TypeOfCast);
++  case tok::pipe:
++    if (!getLang().Eero)
++      return ExprError();
++    return ParseObjCSelectorExpression(Tok.getLocation());
++
++  case tok::less:
++    if (!getLang().Eero)
++      return ExprError();
++    return ParseObjCProtocolExpression(Tok.getLocation());
 +
 +  case tok::kw_typedef: // should only get here with Eero "typedef XX... ..."
 +    return ParsePrefixTypedef(ConsumeToken());
@@ -2990,7 +3122,7 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::l_square:
      // These can be followed by postfix-expr pieces.
      if (getLang().ObjC1)
-@@ -1050,6 +1106,13 @@
+@@ -1050,6 +1115,13 @@
    // parsed, see if there are any postfix-expression pieces here.
    SourceLocation Loc;
    while (1) {
@@ -3004,7 +3136,7 @@ Index: lib/Parse/ParseExpr.cpp
      switch (Tok.getKind()) {
      case tok::code_completion:
        if (InMessageExpression)
-@@ -1059,12 +1122,31 @@
+@@ -1059,12 +1131,31 @@
        ConsumeCodeCompletionToken();
        LHS = ExprError();
        break;
@@ -3037,7 +3169,7 @@ Index: lib/Parse/ParseExpr.cpp
            (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) {
          LHS = ParseObjCMessageExpressionBody(SourceLocation(), SourceLocation(),
                                               ParsedType(), LHS.get());
-@@ -1092,6 +1174,21 @@
+@@ -1092,6 +1183,21 @@
        SourceLocation RLoc = Tok.getLocation();
  
        if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
@@ -3059,7 +3191,7 @@ Index: lib/Parse/ParseExpr.cpp
          LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.take(), Loc,
                                                Idx.take(), RLoc);
        } else
-@@ -1650,6 +1747,20 @@
+@@ -1650,6 +1756,20 @@
        Ty = ParseTypeName();
      }
      
@@ -3080,7 +3212,22 @@ Index: lib/Parse/ParseExpr.cpp
      // If our type is followed by an identifier and either ':' or ']', then 
      // this is probably an Objective-C message send where the leading '[' is
      // missing. Recover as if that were the case.
-@@ -1889,7 +2000,7 @@
+@@ -1684,6 +1804,14 @@
+         // returns the parsed type to the callee.
+         if (stopIfCastExpr)
+           return ExprResult();
++
++        if (getLang().Eero && 
++            Tok.isAtStartOfLine() &&
++            (ParenCount == 0) && (BracketCount == 0) &&        
++            !InSystemHeader(OpenLoc)) {
++          Diag(RParenLoc, diag::err_expected_expression_after) << ")";
++          return ExprError();
++        }
+         
+         // Reject the cast of super idiom in ObjC.
+         if (Tok.is(tok::identifier) && getLang().ObjC1 &&
+@@ -1889,7 +2017,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -3089,7 +3236,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1909,7 +2020,7 @@
+@@ -1909,7 +2037,7 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -3098,7 +3245,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1930,6 +2041,10 @@
+@@ -1930,6 +2058,10 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
@@ -3722,7 +3869,17 @@ Index: lib/Parse/Parser.cpp
 ===================================================================
 --- lib/Parse/Parser.cpp	(revision 129311)
 +++ lib/Parse/Parser.cpp	(working copy)
-@@ -243,6 +243,15 @@
+@@ -139,6 +139,9 @@
+   case tok::greater:  LHSName = "<"; DID = diag::err_expected_greater; break;
+   case tok::greatergreatergreater:
+                       LHSName = "<<<"; DID = diag::err_expected_ggg; break;
++  case tok::pipe: if (getLang().Eero) { 
++                    LHSName = "|"; DID = diag::err_expected_pipe;
++                    } break;
+   }
+   Diag(Tok, DID);
+   Diag(LHSLoc, diag::note_matching) << LHSName;
+@@ -243,6 +246,15 @@
          }
          return true;
        }
@@ -3738,7 +3895,7 @@ Index: lib/Parse/Parser.cpp
      }
  
      switch (Tok.getKind()) {
-@@ -549,6 +558,13 @@
+@@ -549,6 +561,13 @@
    case tok::kw_using:
    case tok::kw_namespace:
    case tok::kw_typedef:
@@ -3752,7 +3909,7 @@ Index: lib/Parse/Parser.cpp
    case tok::kw_template:
    case tok::kw_export:    // As in 'export template'
    case tok::kw_static_assert:
-@@ -608,6 +624,20 @@
+@@ -608,6 +627,20 @@
  
    default:
    dont_know:
@@ -3773,7 +3930,7 @@ Index: lib/Parse/Parser.cpp
      // We can't tell whether this is a function-definition or declaration yet.
      if (DS) {
        DS->takeAttributesFrom(attrs);
-@@ -638,6 +668,17 @@
+@@ -638,6 +671,17 @@
  /// declarator, indicates the start of a function definition.
  bool Parser::isStartOfFunctionDefinition(const ParsingDeclarator &Declarator) {
    assert(Declarator.isFunctionDeclarator() && "Isn't a function declarator");
@@ -3791,7 +3948,7 @@ Index: lib/Parse/Parser.cpp
    if (Tok.is(tok::l_brace))   // int X() {}
      return true;
    
-@@ -747,6 +788,11 @@
+@@ -747,6 +791,11 @@
                                        const ParsedTemplateInfo &TemplateInfo) {
    const DeclaratorChunk::FunctionTypeInfo &FTI = D.getFunctionTypeInfo();
  
