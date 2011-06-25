@@ -86,17 +86,17 @@ init, return id
     NotificationCenter notificationCenter := defaultCenter
 
     notificationCenter addObserver self,
-                          selector selector( applicationReady: ),
+                          selector |applicationReady:|,
                               name NSApplicationDidFinishLaunchingNotification,
                             object nil
 
     notificationCenter addObserver self,
-                          selector selector( frameChanged: ),
+                          selector |frameChanged:|,
                               name NSViewFrameDidChangeNotification,
                             object nil
 
     notificationCenter addObserver self,
-                          selector selector( selectionChanged: ),
+                          selector |selectionChanged:|,
                               name NSTextViewDidChangeSelectionNotification,
                             object nil
   return self
@@ -182,10 +182,10 @@ selectHighlightColor id | sender // unused
   Color color = highlightColorAttributes[NSBackgroundColorAttributeName]
   colorPanel setColor color
   colorPanel setTarget self
-  colorPanel setAction selector( changeColor: )
+  colorPanel setAction |changeColor:|
 
   (NotificationCenter defaultCenter) addObserver self,
-                                        selector selector( colorPanelWillClose: ),
+                                        selector |colorPanelWillClose:|,
                                             name NSWindowWillCloseNotification,
                                           object colorPanel
   NSApp orderFrontColorPanel nil
@@ -246,7 +246,7 @@ addItemToApplicationMenu
 
     newItem setTitle self.highlightColorMenuItemTitle  // note: not localized
     newItem setTarget self
-    newItem setAction selector( selectHighlightColor: )
+    newItem setAction |selectHighlightColor:|
     newItem setEnabled YES
 
     editorMenu insertItem newItem, 
