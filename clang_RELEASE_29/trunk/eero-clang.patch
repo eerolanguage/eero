@@ -1177,7 +1177,7 @@ Index: lib/Sema/SemaExpr.cpp
  /// Check an ext-vector component access expression.
  ///
  /// VK should be set in advance to the value kind of the base
-@@ -5136,7 +5228,68 @@
+@@ -5136,7 +5228,67 @@
    if (isa<ParenListExpr>(castExpr))
      return ActOnCastOfParenListExpr(S, LParenLoc, RParenLoc, castExpr,
                                      castTInfo);
@@ -1191,8 +1191,7 @@ Index: lib/Sema/SemaExpr.cpp
 +      castTInfo = Context.getTrivialTypeSourceInfo(castType);
 +    } else if (castType->isObjCObjectPointerType() &&  // get underlying class for
 +               !castType->isObjCIdType()) {            // possible message sends
-+      void* opaquePtr = castType->getPointeeType().getAsOpaquePtr();
-+      Ty = ParsedType::getFromOpaquePtr(opaquePtr);
++      Ty = ParsedType::make(castType->getPointeeType());
 +    }
 +    if (castType->isObjCObjectPointerType()) {            // convert to a class from...
 +      if (castExprType->isObjCObjectPointerType() ||             // another object type
@@ -1246,7 +1245,7 @@ Index: lib/Sema/SemaExpr.cpp
    return BuildCStyleCastExpr(LParenLoc, castTInfo, RParenLoc, castExpr);
  }
  
-@@ -6246,6 +6399,33 @@
+@@ -6246,6 +6398,33 @@
      return Compatible;
    }
  
@@ -1280,7 +1279,7 @@ Index: lib/Sema/SemaExpr.cpp
    // This check seems unnatural, however it is necessary to ensure the proper
    // conversion of functions/arrays. If the conversion were done for all
    // DeclExpr's (created by ActOnIdExpression), it would mess up the unary
-@@ -7970,6 +8150,29 @@
+@@ -7970,6 +8149,29 @@
        << lhs->getSourceRange() << rhs->getSourceRange();
  }
  
@@ -1310,7 +1309,7 @@ Index: lib/Sema/SemaExpr.cpp
  /// CreateBuiltinBinOp - Creates a new built-in binary operation with
  /// operator @p Opc at location @c TokLoc. This routine only supports
  /// built-in operations; ActOnBinOp handles overloaded operators.
-@@ -8276,6 +8479,13 @@
+@@ -8276,6 +8478,13 @@
    assert((lhs != 0) && "ActOnBinOp(): missing left expression");
    assert((rhs != 0) && "ActOnBinOp(): missing right expression");
  
@@ -1324,7 +1323,7 @@ Index: lib/Sema/SemaExpr.cpp
    // Emit warnings for tricky precedence issues, e.g. "bitfield & 0x4 == 0"
    DiagnoseBinOpPrecedence(*this, Opc, TokLoc, lhs, rhs);
  
-@@ -8454,6 +8664,18 @@
+@@ -8454,6 +8663,18 @@
  // Unary Operators.  'Tok' is the token for the operator.
  ExprResult Sema::ActOnUnaryOp(Scope *S, SourceLocation OpLoc,
                                tok::TokenKind Op, Expr *Input) {
@@ -1343,7 +1342,7 @@ Index: lib/Sema/SemaExpr.cpp
    return BuildUnaryOp(S, OpLoc, ConvertTokenKindToUnaryOpcode(Op), Input);
  }
  
-@@ -9728,3 +9950,312 @@
+@@ -9728,3 +9949,312 @@
    Diag(Loc, diag::err_ovl_unresolvable) << E->getSourceRange();
    return ExprError();
  }
