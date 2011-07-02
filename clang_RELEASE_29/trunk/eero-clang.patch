@@ -1081,7 +1081,7 @@ Index: lib/Sema/SemaExpr.cpp
 +  // Eero strict enums disallow all postfix unary operators
 +  if (getLangOptions().Eero && 
 +      Input->getType()->isStrictEnumeralType() &&
-+      !Input->isEvaluatable(Context)) {
++      Input->isLValue()) {
 +    return ExprError(Diag(OpLoc, diag::err_ovl_no_oper) <<
 +                     Input->getType() << UnaryOperator::getOpcodeStr(Opc) <<
 +                     Input->getSourceRange());
@@ -1332,7 +1332,7 @@ Index: lib/Sema/SemaExpr.cpp
 +  if (getLangOptions().Eero && 
 +      Op != tok::amp && 
 +      Input->getType()->isStrictEnumeralType() &&
-+      !Input->isEvaluatable(Context)) {
++      Input->isLValue()) {
 +    return ExprError(Diag(OpLoc, diag::err_ovl_no_oper) <<
 +                     Input->getType() << 
 +                     UnaryOperator::getOpcodeStr(ConvertTokenKindToUnaryOpcode(Op)) <<
