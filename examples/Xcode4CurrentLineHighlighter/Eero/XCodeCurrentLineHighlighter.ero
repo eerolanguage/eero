@@ -151,7 +151,7 @@ saveHighlightColor Color
 
 //-----------------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------------
-highlightLineInView TextView, containingRange Range | range
+highlightLineInView TextView, containingRange Range
 
   try
     (view layoutManager) addTemporaryAttributes highlightColorAttributes,
@@ -163,7 +163,7 @@ highlightLineInView TextView, containingRange Range | range
 
 //-----------------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------------
-removeHighlightFromLineInView TextView, containingRange Range | range
+removeHighlightFromLineInView TextView, containingRange Range
 
   try
     (view layoutManager) removeTemporaryAttribute NSBackgroundColorAttributeName,
