@@ -1040,7 +1040,27 @@ Index: lib/Sema/SemaExprObjC.cpp
      Diag(Loc, diag::err_missing_open_square_message_send)
        << FixItHint::CreateInsertion(Loc, "[");
      LBracLoc = Loc;
-@@ -984,7 +995,7 @@
+@@ -897,6 +908,19 @@
+ 
+   unsigned NumArgs = ArgsIn.size();
+   Expr **Args = reinterpret_cast<Expr **>(ArgsIn.release());
++
++  ExprVector argExprs(*this);
++  if (getLangOptions().Eero &&          // Eero adds nil/null to
++      Method && Method->isVariadic()) { // end of all variadic calls
++    for (unsigned int i=0; i < NumArgs; i++) {
++      argExprs.push_back(Args[i]);
++    }
++    ExprResult nilArg = ActOnGNUNullExpr(RBracLoc);
++    argExprs.push_back(nilArg.release());
++    Args = argExprs.take();
++    NumArgs++;
++  }
++
+   if (CheckMessageArgumentTypes(Args, NumArgs, Sel, Method, true,
+                                 LBracLoc, RBracLoc, ReturnType, VK))
+     return ExprError();
+@@ -984,7 +1008,7 @@
    // The location of the receiver.
    SourceLocation Loc = SuperLoc.isValid()? SuperLoc : Receiver->getLocStart();
    
@@ -1049,6 +1069,26 @@ Index: lib/Sema/SemaExprObjC.cpp
      Diag(Loc, diag::err_missing_open_square_message_send)
        << FixItHint::CreateInsertion(Loc, "[");
      LBracLoc = Loc;
+@@ -1163,6 +1187,19 @@
+   // Check the message arguments.
+   unsigned NumArgs = ArgsIn.size();
+   Expr **Args = reinterpret_cast<Expr **>(ArgsIn.release());
++
++  ExprVector argExprs(*this);
++  if (getLangOptions().Eero &&          // Eero adds nil/null to
++      Method && Method->isVariadic()) { // end of all variadic calls
++    for (unsigned int i=0; i < NumArgs; i++) {
++      argExprs.push_back(Args[i]);
++    }
++    ExprResult nilArg = ActOnGNUNullExpr(RBracLoc);
++    argExprs.push_back(nilArg.release());
++    Args = argExprs.take();
++    NumArgs++;
++  }
++
+   QualType ReturnType;
+   ExprValueKind VK = VK_RValue;
+   bool ClassMessage = (ReceiverType->isObjCClassType() ||
 Index: lib/Sema/SemaExpr.cpp
 ===================================================================
 --- lib/Sema/SemaExpr.cpp	(revision 129311)
@@ -1947,19 +1987,25 @@ Index: lib/Parse/ParseDecl.cpp
  
    case tok::kw___cdecl:
    case tok::kw___stdcall:
-@@ -2420,6 +2458,11 @@
+@@ -2420,6 +2458,17 @@
        return false;
      if (TryAltiVecVectorToken())
        return true;
 +    if (getLang().Eero && 
-+        (NextToken().is(tok::identifier) &&     // variadic class method call
-+         GetLookAheadToken(2).is(tok::colon) || 
-+         NextToken().is(tok::colon)))           // empty-selector-name-method call
++        !GetLookAheadToken(1).isAtStartOfLine() &&
++        ((GetLookAheadToken(1).is(tok::identifier) &&  // method call with arg(s)
++          !GetLookAheadToken(2).isAtStartOfLine() &&   //
++          GetLookAheadToken(2).isNot(tok::equal) &&
++          GetLookAheadToken(2).isNot(tok::comma) &&
++          (GetLookAheadToken(2).isNot(tok::identifier) ||
++           GetLookAheadToken(2).getIdentifierInfo() != ObjCTypeQuals[objc_in])) ||
++         GetLookAheadToken(1).is(tok::tilde)) &&       // unnamed-method call
++        !InSystemHeader(Tok.getLocation()))
 +      return false; 
      // Fall through.
    case tok::kw_typename: // typename T::type
      // Annotate typenames and C++ scope specifiers.  If we get one, just
-@@ -2453,6 +2496,10 @@
+@@ -2453,6 +2502,10 @@
  
      // storage-class-specifier
    case tok::kw_typedef:
@@ -1970,7 +2016,7 @@ Index: lib/Parse/ParseDecl.cpp
    case tok::kw_extern:
    case tok::kw___private_extern__:
    case tok::kw_static:
-@@ -2512,7 +2559,7 @@
+@@ -2512,7 +2565,7 @@
  
      // GNU ObjC bizarre protocol extension: <proto1,proto2> with implicit 'id'.
    case tok::less:
@@ -1979,7 +2025,7 @@ Index: lib/Parse/ParseDecl.cpp
  
    case tok::kw___declspec:
    case tok::kw___cdecl:
-@@ -2979,7 +3026,7 @@
+@@ -2979,7 +3032,7 @@
    if (D.getIdentifier())
      MaybeParseCXX0XAttributes(D);
  
@@ -2011,7 +2057,7 @@ Index: lib/Parse/ParseObjc.cpp
 +         Tok.getObjCKeywordID() == tok::objc_not_keyword &&
 +         (Tok.is(tok::identifier) || 
 +          Tok.is(tok::kw_static) || 
-+          Tok.is(tok::colon)))   ) {
++          Tok.is(tok::tilde)))   ) {
        Decl *methodPrototype =
          ParseObjCMethodPrototype(interfaceDecl, MethodImplKind);
        allMethods.push_back(methodPrototype);
@@ -2243,14 +2289,16 @@ Index: lib/Parse/ParseObjc.cpp
  
    // If attributes exist before the method, parse them.
    ParsedAttributes attrs;
-@@ -852,16 +948,41 @@
+@@ -851,17 +947,42 @@
+   SourceLocation selLoc;
    IdentifierInfo *SelIdent = ParseObjCSelectorPiece(selLoc);
  
-   // An unnamed colon is valid.
+-  // An unnamed colon is valid.
 -  if (!SelIdent && Tok.isNot(tok::colon)) { // missing selector name.
 -    Diag(Tok, diag::err_expected_selector_for_method)
 +  if (!SelIdent) { // missing selector name.
-+    if (Tok.isNot(tok::colon)) {
++    if ((objcSyntax && Tok.isNot(tok::colon)) || // for objc, an unnamed colon is valid
++        (!objcSyntax && Tok.isNot(tok::tilde))) { // but Eero uses a tilde instead
 +      Diag(Tok, diag::err_expected_selector_for_method)
        << SourceRange(mLoc, Tok.getLocation());
 -    // Skip until we get a ; or {}.
@@ -2260,7 +2308,7 @@ Index: lib/Parse/ParseObjc.cpp
 +      SkipUntil(tok::r_brace);
 +      return 0;
 +    } else if (!objcSyntax) {
-+      ConsumeToken();
++      ConsumeToken(); // consume "~"
 +    }
    }
  
@@ -2460,8 +2508,8 @@ Index: lib/Parse/ParseObjc.cpp
 +          break;
 +        }
 +      } else { // probably an unnamed selector       
-+        if (Tok.is(tok::colon)) { // colon optional in Eero, but consume if present
-+          ConsumeToken(); // ":"
++        if (Tok.is(tok::tilde)) { // tilde optional in Eero, but consume if present
++          ConsumeToken(); // "~"
 +        }
 +        SelIdent = 0;
 +      }
@@ -2678,19 +2726,17 @@ Index: lib/Parse/ParseObjc.cpp
    if (Tok.is(tok::code_completion)) {
      Actions.CodeCompleteObjCMessageReceiver(getCurScope());
      ConsumeCodeCompletionToken();
-@@ -2083,21 +2354,46 @@
+@@ -2083,22 +2354,42 @@
    llvm::SmallVector<IdentifierInfo *, 12> KeyIdents;
    ExprVector KeyExprs(Actions);
  
+-  if (Tok.is(tok::colon)) {
 +  bool parseArguments = false;
 +
-   if (Tok.is(tok::colon)) {
-+    parseArguments = true;
-+    if (getLang().Eero && !selIdent) {
-+      ConsumeToken(); // ":"
-+    }
-+  } else if (getLang().Eero &&
-+             selIdent && 
++  if (!getLang().Eero) {
++    if (Tok.is(tok::colon))
++      parseArguments = true;
++  } else if (selIdent && 
 +             !Tok.isAtStartOfLine() &&
 +             (Tok.is(tok::identifier) || 
 +              Tok.isLiteral() ||
@@ -2699,9 +2745,11 @@ Index: lib/Parse/ParseObjc.cpp
 +              Tok.is(tok::pipe) ||  // for selector "literals"
 +              Tok.is(tok::less))) { // for protocol "literals"
 +    parseArguments = true;
++  } else if (!selIdent && Tok.is(tok::tilde)) { // unnamed method
++    ConsumeToken(); // "~"
++    parseArguments = true;
 +  }   
 +
-+  bool variadicArguments = false;
 +  if (parseArguments) {
      while (1) {
        // Each iteration parses a single keyword argument.
@@ -2724,16 +2772,15 @@ Index: lib/Parse/ParseObjc.cpp
 +          return ExprError();
 +        }
 +        ConsumeToken(); // Eat the ':'.
-+      } else if (Tok.is(tok::colon)) { // for Eero, colon indicates variadic args
-+        ConsumeToken(); // Eat the ':'.
-+        variadicArguments = true;
++        ///  Parse the expression after ':'
        }
- 
+-
 -      ConsumeToken(); // Eat the ':'.
-       ///  Parse the expression after ':'
+-      ///  Parse the expression after ':'
        
        if (Tok.is(tok::code_completion)) {
-@@ -2122,7 +2418,12 @@
+         if (SuperLoc.isValid())
+@@ -2122,7 +2413,12 @@
          return ExprError();
        }
        
@@ -2747,7 +2794,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2155,18 +2456,38 @@
+@@ -2155,18 +2451,42 @@
          SkipUntil(tok::r_square);
          return ExprError();
        }
@@ -2765,18 +2812,22 @@ Index: lib/Parse/ParseObjc.cpp
 +          break;
 +        // We have a selector or a colon, continue parsing.
 +      } else { // Eero
-+        if (!variadicArguments && Tok.is(tok::comma)) { // eat the comma and keep going
-+          ConsumeToken(); 
-+        } else {
++        if (Tok.is(tok::comma)) {
++          if (GetLookAheadToken(1).is(tok::identifier) && // look for normal
++              GetLookAheadToken(2).isNot(tok::comma) &&   // parameter selector
++             !GetLookAheadToken(2).isAtStartOfLine()) {
++            ConsumeToken(); // consume comma
++            selIdent = ParseObjCSelectorPiece(Loc);
++          } else if (NextToken().is(tok::tilde)) { // unnamed selector
++            ConsumeToken(); // consume comma
++            selIdent = 0;
++            Loc = ConsumeAnyToken(); // consume "~"
++          } else { // variadic args
++            break;
++          }
++        } else { // no comma, message done
 +          break;
 +        }
-+        if (Tok.is(tok::identifier) && 
-+            (NextToken().isNot(tok::comma) && !NextToken().isAtStartOfLine())) {
-+          selIdent = ParseObjCSelectorPiece(Loc);
-+        } else { // unnamed selector (parameter), loop to parse argument
-+          selIdent = 0;
-+          Loc = Tok.getLocation();
-+        } 
 +      }
      }
      // Parse the, optional, argument list, comma separated.
@@ -2793,7 +2844,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2187,21 +2508,41 @@
+@@ -2187,21 +2507,36 @@
      SkipUntil(tok::r_square);
      return ExprError();
    }
@@ -2836,11 +2887,6 @@ Index: lib/Parse/ParseObjc.cpp
 +      }
 +      RBracLoc = ConsumeBracket(); // consume ']'
 +    }
-+
-+    if (variadicArguments) { // Eero automatically adds a nil/NULL to the end      
-+      ExprResult nilArg = Actions.ActOnGNUNullExpr(SourceLocation());
-+      KeyExprs.push_back(nilArg.release());
-+    }
    }
  
 -  SourceLocation RBracLoc = ConsumeBracket(); // consume ']'
@@ -2848,7 +2894,7 @@ Index: lib/Parse/ParseObjc.cpp
    unsigned nKeys = KeyIdents.size();
    if (nKeys == 0)
      KeyIdents.push_back(selIdent);
-@@ -2284,7 +2625,13 @@
+@@ -2284,7 +2619,13 @@
  ///       @protocol ( protocol-name )
  ExprResult
  Parser::ParseObjCProtocolExpression(SourceLocation AtLoc) {
@@ -2863,7 +2909,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    if (Tok.isNot(tok::l_paren))
      return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@protocol");
-@@ -2297,6 +2644,15 @@
+@@ -2297,6 +2638,15 @@
    IdentifierInfo *protocolId = Tok.getIdentifierInfo();
    ConsumeToken();
  
@@ -2879,7 +2925,7 @@ Index: lib/Parse/ParseObjc.cpp
    SourceLocation RParenLoc = MatchRHSPunctuation(tok::r_paren, LParenLoc);
  
    return Owned(Actions.ParseObjCProtocolExpression(protocolId, AtLoc, ProtoLoc,
-@@ -2306,7 +2662,16 @@
+@@ -2306,7 +2656,16 @@
  ///     objc-selector-expression
  ///       @selector '(' objc-keyword-selector ')'
  ExprResult Parser::ParseObjCSelectorExpression(SourceLocation AtLoc) {
@@ -2897,7 +2943,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    if (Tok.isNot(tok::l_paren))
      return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@selector");
-@@ -2319,7 +2684,7 @@
+@@ -2319,7 +2678,7 @@
      Actions.CodeCompleteObjCSelector(getCurScope(), KeyIdents.data(),
                                       KeyIdents.size());
      ConsumeCodeCompletionToken();
@@ -2906,7 +2952,7 @@ Index: lib/Parse/ParseObjc.cpp
      return ExprError();
    }
    
-@@ -2330,24 +2695,27 @@
+@@ -2330,24 +2689,27 @@
  
    KeyIdents.push_back(SelIdent);
    unsigned nColons = 0;
@@ -2938,7 +2984,7 @@ Index: lib/Parse/ParseObjc.cpp
          return ExprError();
        }
  
-@@ -2359,8 +2727,34 @@
+@@ -2359,8 +2721,34 @@
          break;
      }
    }
@@ -3034,54 +3080,75 @@ Index: lib/Parse/ParseExpr.cpp
      // Consume the identifier so that we can see if it is followed by a '(' or
      // '.'.
      IdentifierInfo &II = *Tok.getIdentifierInfo();
-@@ -659,27 +683,53 @@
+@@ -659,27 +683,66 @@
      // the token sequence is ill-formed. However, if there's a ':' or ']' after
      // that identifier, this is probably a message send with a missing open
      // bracket. Treat it as such. 
-+    // In an Eero method, if we have "super" followed by an identifier or a colon,
++    // In an Eero method, if we have "super" followed by an identifier or a tilde,
 +    // we have a valid message send.
++    bool LooksLikeMessageExpr = false;
      if (getLang().ObjC1 && &II == Ident_super && !InMessageExpression &&
-         getCurScope()->isInObjcMethodScope() &&
-+        ((getLang().Eero &&
-+          (Tok.is(tok::identifier) || Tok.is(tok::colon)) &&
-+          (!Tok.isAtStartOfLine() || (ParenCount > 0) || (BracketCount > 0))) ||
-         ((Tok.is(tok::identifier) &&
-          (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) ||
+-        getCurScope()->isInObjcMethodScope() &&
+-        ((Tok.is(tok::identifier) &&
+-         (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) ||
 -         Tok.is(tok::code_completion))) {
-+         Tok.is(tok::code_completion)))) {
++        getCurScope()->isInObjcMethodScope()) {
++      if (!getLang().Eero) {
++        if ((Tok.is(tok::identifier) &&
++             (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) ||
++            Tok.is(tok::code_completion)) {
++          LooksLikeMessageExpr = true;
++        }
++      } else { // Eero
++        if (((Tok.is(tok::identifier) || Tok.is(tok::tilde)) &&
++             (!Tok.isAtStartOfLine() || 
++              (ParenCount > 0) || (BracketCount > 0))) ||
++            Tok.is(tok::code_completion)) {
++          LooksLikeMessageExpr = true;
++        }
++      }
++    }
++    if (LooksLikeMessageExpr) {
        Res = ParseObjCMessageExpressionBody(SourceLocation(), ILoc, ParsedType(), 
                                             0);
        break;
      }
      
-+    bool LooksLikeMessageExpr = false;
 +    SourceLocation MessageExprStartLoc;
 +
-+    // In Eero, if we have an Objective-C class name followed by an
-+    // identifier or a colon, we have a valid Objective-C class message 
-+    // send.
-+    if (getLang().Eero && 
-+        (Tok.is(tok::identifier) || Tok.is(tok::colon)) &&
-+        !InMessageExpression && 
-+        (!Tok.isAtStartOfLine() || (ParenCount > 0) || (BracketCount > 0))) {
-+      LooksLikeMessageExpr = true;
-+      MessageExprStartLoc = ILoc;
-+    }
      // If we have an Objective-C class name followed by an identifier
      // and either ':' or ']', this is an Objective-C class message
      // send that's missing the opening '['. Recovery
      // appropriately. Also take this path if we're performing code
      // completion after an Objective-C class name.
-+    else 
-     if (getLang().ObjC1 && 
-         ((Tok.is(tok::identifier) && !InMessageExpression) || 
-          Tok.is(tok::code_completion))) {
-       const Token& Next = NextToken();
-       if (Tok.is(tok::code_completion) || 
+-    if (getLang().ObjC1 && 
+-        ((Tok.is(tok::identifier) && !InMessageExpression) || 
+-         Tok.is(tok::code_completion))) {
+-      const Token& Next = NextToken();
+-      if (Tok.is(tok::code_completion) || 
 -          Next.is(tok::colon) || Next.is(tok::r_square))
-+          Next.is(tok::colon) || Next.is(tok::r_square)) {
++    if (!getLang().Eero) {
++      if (getLang().ObjC1 && 
++          ((Tok.is(tok::identifier) && !InMessageExpression) || 
++           Tok.is(tok::code_completion))) {
++        const Token& Next = NextToken();
++        if (Tok.is(tok::code_completion) || 
++            Next.is(tok::colon) || Next.is(tok::r_square)) {
++          LooksLikeMessageExpr = true;
++          MessageExprStartLoc = SourceLocation();
++        }
++      }
++    } else { // Eero
++      // If we have an Objective-C class name followed by an
++      // identifier or a tilde, we have a valid Objective-C class
++      // message send.
++      if (((Tok.is(tok::identifier) || Tok.is(tok::tilde)) &&
++           !InMessageExpression && 
++           (!Tok.isAtStartOfLine() || 
++            (ParenCount > 0) || (BracketCount > 0))) ||
++          Tok.is(tok::code_completion)) {
 +        LooksLikeMessageExpr = true;
-+        MessageExprStartLoc = SourceLocation();
++        MessageExprStartLoc = ILoc;
 +      }
 +    }
 +
@@ -3090,7 +3157,7 @@ Index: lib/Parse/ParseExpr.cpp
          if (ParsedType Typ = Actions.getTypeName(II, ILoc, getCurScope()))
            if (Typ.get()->isObjCObjectOrInterfaceType()) {
              // Fake up a Declarator to use with ActOnTypeName.
-@@ -696,7 +746,7 @@
+@@ -696,7 +759,7 @@
              if (Ty.isInvalid())
                break;
              
@@ -3099,7 +3166,7 @@ Index: lib/Parse/ParseExpr.cpp
                                                   SourceLocation(), 
                                                   Ty.get(), 0);
              break;
-@@ -718,9 +768,15 @@
+@@ -718,9 +781,15 @@
      break;
    }
    case tok::char_constant:     // constant: character-constant
@@ -3118,7 +3185,7 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::kw___func__:       // primary-expression: __func__ [C99 6.4.2.2]
    case tok::kw___FUNCTION__:   // primary-expression: __FUNCTION__ [GNU]
    case tok::kw___PRETTY_FUNCTION__:  // primary-expression: __P..Y_F..N__ [GNU]
-@@ -1012,6 +1068,19 @@
+@@ -1012,6 +1081,19 @@
      ConsumeCodeCompletionToken();
      return ParseCastExpression(isUnaryExpression, isAddressOfOperand, 
                                 NotCastExpr, TypeOfCast);
@@ -3138,7 +3205,7 @@ Index: lib/Parse/ParseExpr.cpp
    case tok::l_square:
      // These can be followed by postfix-expr pieces.
      if (getLang().ObjC1)
-@@ -1050,6 +1119,13 @@
+@@ -1050,6 +1132,13 @@
    // parsed, see if there are any postfix-expression pieces here.
    SourceLocation Loc;
    while (1) {
@@ -3152,7 +3219,7 @@ Index: lib/Parse/ParseExpr.cpp
      switch (Tok.getKind()) {
      case tok::code_completion:
        if (InMessageExpression)
-@@ -1059,12 +1135,31 @@
+@@ -1059,12 +1148,32 @@
        ConsumeCodeCompletionToken();
        LHS = ExprError();
        break;
@@ -3162,7 +3229,7 @@ Index: lib/Parse/ParseExpr.cpp
 +        continue;
          
      case tok::identifier:
-+    case tok::colon:      // added for Eero anonymous selector support
++    case tok::tilde:      // added for Eero anonymous selector support
 +      // Eero supports message passing with or without square brackets
 +      if (getLang().Eero && !LHS.isInvalid() &&
 +          !InMessageExpression && 
@@ -3181,11 +3248,12 @@ Index: lib/Parse/ParseExpr.cpp
        // message send, then this is probably a message send with a missing
        // opening bracket '['.
 -      if (getLang().ObjC1 && !InMessageExpression && 
-+      if (getLang().ObjC1 && !InMessageExpression && Tok.isNot(tok::colon) &&
++      if (!getLang().Eero &&
++          getLang().ObjC1 && !InMessageExpression && Tok.isNot(tok::colon) &&
            (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) {
          LHS = ParseObjCMessageExpressionBody(SourceLocation(), SourceLocation(),
                                               ParsedType(), LHS.get());
-@@ -1092,6 +1187,21 @@
+@@ -1092,6 +1201,21 @@
        SourceLocation RLoc = Tok.getLocation();
  
        if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
@@ -3207,14 +3275,14 @@ Index: lib/Parse/ParseExpr.cpp
          LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.take(), Loc,
                                                Idx.take(), RLoc);
        } else
-@@ -1650,6 +1760,20 @@
+@@ -1650,10 +1774,25 @@
        Ty = ParseTypeName();
      }
      
-+    // For Eero, if our type is followed by an identifier or a colon, then 
++    // For Eero, if our type is followed by an identifier or a tilde, then 
 +    // this is probably a message send.
 +    if (getLang().Eero && !Ty.isInvalid() &&
-+        (Tok.is(tok::identifier) || Tok.is(tok::colon)) &&
++        (Tok.is(tok::identifier) || Tok.is(tok::tilde)) &&
 +        (!Tok.isAtStartOfLine() || (ParenCount > 0) || (BracketCount > 0)) &&
 +        !Ty.get().get().isNull() &&
 +        Ty.get().get()->isObjCObjectOrInterfaceType()) {
@@ -3228,7 +3296,13 @@ Index: lib/Parse/ParseExpr.cpp
      // If our type is followed by an identifier and either ':' or ']', then 
      // this is probably an Objective-C message send where the leading '[' is
      // missing. Recover as if that were the case.
-@@ -1684,6 +1808,14 @@
+-    if (!Ty.isInvalid() && Tok.is(tok::identifier) && !InMessageExpression &&
++    if (!getLang().Eero &&
++        !Ty.isInvalid() && Tok.is(tok::identifier) && !InMessageExpression &&
+         getLang().ObjC1 && !Ty.get().get().isNull() &&
+         (NextToken().is(tok::colon) || NextToken().is(tok::r_square)) &&
+         Ty.get().get()->isObjCObjectOrInterfaceType()) {
+@@ -1684,6 +1823,14 @@
          // returns the parsed type to the callee.
          if (stopIfCastExpr)
            return ExprResult();
@@ -3243,7 +3317,7 @@ Index: lib/Parse/ParseExpr.cpp
          
          // Reject the cast of super idiom in ObjC.
          if (Tok.is(tok::identifier) && getLang().ObjC1 &&
-@@ -1889,7 +2021,7 @@
+@@ -1889,7 +2036,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -3252,7 +3326,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1909,7 +2041,7 @@
+@@ -1909,7 +2056,7 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -3261,7 +3335,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1930,6 +2062,10 @@
+@@ -1930,6 +2077,10 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
@@ -3940,7 +4014,7 @@ Index: lib/Parse/Parser.cpp
 +      } else if (!PendingObjCImpDecl.empty() && // within interface or impl block
 +                 (Tok.is(tok::identifier) ||    //   instance method
 +                  Tok.is(tok::kw_static) ||     //   class method
-+                  Tok.is(tok::colon))) {        //   unnamed method
++                  Tok.is(tok::tilde))) {        //   unnamed method
 +        SingleDecl = ParseObjCMethodDefinition();
 +        break;
 +      }
