@@ -1708,6 +1708,20 @@ Index: lib/AST/Type.cpp
  
  bool Type::isBooleanType() const {
    if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
+Index: lib/Lex/Lexer.cpp
+===================================================================
+--- lib/Lex/Lexer.cpp	(revision 129311)
++++ lib/Lex/Lexer.cpp	(working copy)
+@@ -2154,6 +2154,9 @@
+       Kind = tok::ellipsis;
+       CurPtr = ConsumeChar(ConsumeChar(CurPtr, SizeTmp, Result),
+                            SizeTmp2, Result);
++    } else if (Features.Eero && Char == '.') { // Eero accepts ".." too
++      Kind = tok::ellipsis;
++      CurPtr = ConsumeChar(CurPtr, SizeTmp, Result);
+     } else {
+       Kind = tok::period;
+     }
 Index: lib/Lex/LiteralSupport.cpp
 ===================================================================
 --- lib/Lex/LiteralSupport.cpp	(revision 129311)
