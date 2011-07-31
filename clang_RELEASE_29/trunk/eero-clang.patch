@@ -3180,21 +3180,21 @@ Index: lib/Parse/ParseExpr.cpp
 ===================================================================
 --- lib/Parse/ParseExpr.cpp	(revision 129311)
 +++ lib/Parse/ParseExpr.cpp	(working copy)
-@@ -223,6 +223,14 @@
-     return ParseThrowExpression();
+@@ -274,6 +274,14 @@
+     if (NextTokPrec < MinPrec)
+       return move(LHS);
  
-   ExprResult LHS(ParseCastExpression(false));
-+  if (getLang().Eero && !LHS.isInvalid() &&    // TODO: revisit all this
-+      Tok.isAtStartOfLine() && (ParenCount == 0) && (BracketCount == 0) &&
-+      !InSystemHeader(Tok.getLocation()) &&
-+      !Tok.isObjCAtKeyword(tok::objc_catch) && 
-+      !Tok.isObjCAtKeyword(tok::objc_finally)) {
-+    InsertToken(tok::semi);
-+    return LHS;
-+  }
-   return ParseRHSOfBinaryExpression(move(LHS), prec::Assignment);
- }
- 
++    // Catches cases where the next line looks like the RHS of a bin op,
++    // but it really isn't, e.g. after some (non-decl) assignments.
++    if (getLang().Eero &&
++        Tok.isAtStartOfLine() && 
++        (ParenCount == 0) && (BracketCount == 0)) {
++      return move(LHS);
++    }
++
+     // Consume the operator, saving the operator token for error reporting.
+     Token OpToken = Tok;
+     ConsumeToken();
 @@ -289,7 +297,13 @@
          //   logical-OR-expression '?' expression ':' conditional-expression
          // In particular, the RHS of the '?' is 'expression', not
