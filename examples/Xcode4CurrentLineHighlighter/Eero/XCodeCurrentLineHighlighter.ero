@@ -105,7 +105,7 @@ init, return id
 //-----------------------------------------------------------------------------------------------
 //-----------------------------------------------------------------------------------------------
 dealloc
-  (NotificationCenter defaultCenter) removeObserver self
+  NotificationCenter defaultCenter : removeObserver self
   super dealloc
 
 
@@ -154,11 +154,11 @@ saveHighlightColor Color
 highlightLineInView TextView, containingRange Range
 
   try
-    (view layoutManager) addTemporaryAttributes highlightColorAttributes,
-                              forCharacterRange ([view string] lineRangeForRange range)
+    view layoutManager : addTemporaryAttributes highlightColorAttributes,
+                              forCharacterRange (view string : lineRangeForRange range)
   catch Exception exception
     if exception name != NSRangeException
-      throw exception
+      throw exception; // bug filed for semicolon needed here
 
 
 //-----------------------------------------------------------------------------------------------
@@ -166,11 +166,11 @@ highlightLineInView TextView, containingRange Range
 removeHighlightFromLineInView TextView, containingRange Range
 
   try
-    (view layoutManager) removeTemporaryAttribute NSBackgroundColorAttributeName,
-                                forCharacterRange ([view string] lineRangeForRange range)
+    view layoutManager : removeTemporaryAttribute NSBackgroundColorAttributeName,
+                                forCharacterRange (view string : lineRangeForRange range)
   catch Exception exception
     if exception name != NSRangeException
-      throw exception;
+      throw exception; // bug filed for semicolon needed here
 
 
 //-----------------------------------------------------------------------------------------------
@@ -184,7 +184,7 @@ selectHighlightColor id | sender // unused
   colorPanel setTarget self
   colorPanel setAction |changeColor:|
 
-  (NotificationCenter defaultCenter) addObserver self,
+  NotificationCenter defaultCenter : addObserver self,
                                         selector |colorPanelWillClose:|,
                                             name NSWindowWillCloseNotification,
                                           object colorPanel
@@ -209,12 +209,13 @@ changeColor id | sender // unused
   //
   id window = NSApp mainWindow
   NSRect frame = window frame
-  NSRect tempFrame = NSMakeRect( frame.origin.x, 
-                                 frame.origin.y, 
-                                 frame.size.width, 
-                                 frame.size.height + 1.0 )
 
-  window setFrame tempFrame, display YES
+  window setFrame NSMakeRect(frame.origin.x, 
+                             frame.origin.y,
+                             frame.size.width, 
+                             frame.size.height + 1.0),
+          display YES
+
   window setFrame frame, display YES
 
 
@@ -224,7 +225,7 @@ colorPanelWillClose Notification // unused
 
   ColorPanel colorPanel := sharedColorPanel
 
-  (NotificationCenter defaultCenter) removeObserver self,
+  NotificationCenter defaultCenter : removeObserver self,
                                                name NSWindowWillCloseNotification,
                                              object colorPanel
   colorPanel setTarget nil
@@ -236,11 +237,11 @@ colorPanelWillClose Notification // unused
 addItemToApplicationMenu
 
   Menu mainMenu = NSApp mainMenu
-  Menu editorMenu = mainMenu itemWithTitle 'Editor' \ submenu
+  Menu editorMenu = mainMenu itemWithTitle 'Editor' : submenu
 
-  if (editorMenu != nil) and
-     (editorMenu numberOfItems > self.highlightColorMenuItemIndex) and
-     (editorMenu itemWithTitle self.highlightColorMenuItemTitle == nil)
+  if editorMenu != nil and
+     editorMenu numberOfItems > self.highlightColorMenuItemIndex and
+     editorMenu itemWithTitle self.highlightColorMenuItemTitle == nil
 
     MenuItem newItem := new
 
@@ -286,7 +287,7 @@ selectionChanged Notification | notification
   if view isMemberOfClass sourceEditorViewClass
 
     id info = notification userInfo
-    Range oldRange = info['NSOldSelectedCharacterRange'] \ rangeValue
+    Range oldRange = info['NSOldSelectedCharacterRange'] : rangeValue
     Range newRange = view selectedRange
 
     self removeHighlightFromLineInView view, containingRange oldRange
