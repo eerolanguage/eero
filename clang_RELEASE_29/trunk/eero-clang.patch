@@ -173,21 +173,26 @@ Index: include/clang/Sema/Sema.h
    StmtResult ActOnGotoStmt(SourceLocation GotoLoc,
                             SourceLocation LabelLoc,
                             LabelDecl *TheDecl);
-@@ -2014,6 +2023,13 @@
+@@ -2014,6 +2023,18 @@
    ExprResult CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                                               Expr *Idx, SourceLocation RLoc);
  
-+  /// Support object "[]=" operator for integer indexes (arrays) and for
-+  /// object subscripts (KVC and dictionaries).
-+  ExprResult ActOnEeroSubscriptAssignment(Scope *S,
-+                                          Expr *Base, SourceLocation BLoc,
-+                                          Expr *Idx, SourceLocation ILoc,
-+                                          Expr *RHS, SourceLocation ELoc);
++  /// Eero: support object "[]" operators
++  ExprResult ActOnObjectSubscriptExpr(Scope *S, Expr *Base, 
++                                      SourceLocation LLoc,
++                                      Expr *Idx, SourceLocation RLoc);
++
++  /// Eero: support object "[]=" operator for integer or NSRange 
++  /// subscripts (arrays) and for object subscripts (KVC and dictionaries).
++  ExprResult ActOnObjectSubscriptAssignment(Scope *S,
++                                            Expr *Base, SourceLocation BLoc,
++                                            Expr *Idx, SourceLocation ILoc,
++                                            Expr *RHS, SourceLocation ELoc);
 +
    ExprResult BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
                                        SourceLocation OpLoc, bool IsArrow,
                                        CXXScopeSpec &SS,
-@@ -2172,6 +2188,42 @@
+@@ -2172,6 +2193,42 @@
    // __null
    ExprResult ActOnGNUNullExpr(SourceLocation TokenLoc);
  
@@ -230,7 +235,7 @@ Index: include/clang/Sema/Sema.h
    //===------------------------- "Block" Extension ------------------------===//
  
    /// ActOnBlockStart - This callback is invoked when a block literal is
-@@ -4627,6 +4679,11 @@
+@@ -4627,6 +4684,11 @@
                                    SourceLocation RBracLoc,
                                    MultiExprArg Args);
  
@@ -343,18 +348,19 @@ Index: include/clang/Parse/Parser.h
    //===--------------------------------------------------------------------===//
    // Diagnostic Emission and Error recovery.
  
-@@ -1197,6 +1222,10 @@
+@@ -1197,6 +1222,11 @@
    bool ParseObjCXXMessageReceiver(bool &IsExpr, void *&TypeOrExpr);
  
    //===--------------------------------------------------------------------===//
 +  // Eero-specific Expressions
 +  ExprResult ParsePrefixTypedef(SourceLocation TypedefLoc);
++  ExprResult ParseRangeIfPresent(ExprResult LHS);
 +
 +  //===--------------------------------------------------------------------===//
    // C99 6.8: Statements and Blocks.
  
    StmtResult ParseStatement() {
-@@ -1205,6 +1234,8 @@
+@@ -1205,6 +1235,8 @@
    }
    StmtResult ParseStatementOrDeclaration(StmtVector& Stmts,
                                           bool OnlyStatement = false);
@@ -363,7 +369,7 @@ Index: include/clang/Parse/Parser.h
    StmtResult ParseLabeledStatement(ParsedAttributes &Attr);
    StmtResult ParseCaseStatement(ParsedAttributes &Attr);
    StmtResult ParseDefaultStatement(ParsedAttributes &Attr);
-@@ -1300,8 +1331,8 @@
+@@ -1300,8 +1332,8 @@
  
    void ParseEnumSpecifier(SourceLocation TagLoc, DeclSpec &DS,
                  const ParsedTemplateInfo &TemplateInfo = ParsedTemplateInfo(),
@@ -1127,74 +1133,127 @@ Index: lib/Sema/SemaExpr.cpp
    return BuildUnaryOp(S, OpLoc, Opc, Input);
  }
  
-@@ -2916,6 +2935,38 @@
+@@ -2916,6 +2935,15 @@
  ExprResult
  Sema::ActOnArraySubscriptExpr(Scope *S, Expr *Base, SourceLocation LLoc,
                                Expr *Idx, SourceLocation RLoc) {
 +  if (getLangOptions().Eero) {
-+    if (Idx->getType()->isStrictEnumeralType()) { // reject strict enum index
-+      return ExprError(Diag(LLoc, diag::err_typecheck_subscript_not_integer)
-+                       << Idx->getSourceRange());
-+    }
-+    // Support object "[]" operator for integer indexes (arrays) and for
-+    // object subscripts (KVC and dictionaries).
-+    if (Base->getType()->isObjCObjectPointerType()) {
-+      std::string SelName;
-+      if (Idx->getType()->isIntegerType()) {
-+        SelName = "objectAtIndex";
-+      } else if (Idx->getType()->isObjCObjectPointerType()) {
-+        SelName = "valueForKey";
-+      }
-+      if (!SelName.empty()) {
-+        IdentifierInfo &II = PP.getIdentifierTable().getOwn(SelName);      
-+        Selector Sel = PP.getSelectorTable().getUnarySelector(&II);
-+        if (!Sel.isNull()) {
-+          return ActOnInstanceMessage(S,
-+                                      Base, 
-+                                      Sel,
-+                                      LLoc,
-+                                      RLoc,
-+                                      RLoc,
-+                                      MultiExprArg(*this,&Idx,1));
-+        } else {
-+          return ExprError();
-+        }
-+      }
-+    }
++    ExprResult ObjectResult =
++      ActOnObjectSubscriptExpr(S, Base, LLoc, Idx, RLoc);
++
++    // If an error or not an empty expression, return now
++    if (ObjectResult.isInvalid() || ObjectResult.isUsable())
++      return ObjectResult;
 +  }
 +
    // Since this might be a postfix expression, get rid of ParenListExprs.
    ExprResult Result = MaybeConvertParenListExprToParenExpr(S, Base);
    if (Result.isInvalid()) return ExprError();
-@@ -3075,6 +3126,47 @@
+@@ -3075,6 +3103,123 @@
                                                  ResultType, VK, OK, RLoc));
  }
  
-+/// Support object "[]=" operator for integer indexes (arrays) and for
-+/// object subscripts (KVC and dictionaries).
++/// Eero: support object "[]" operators
 +ExprResult
-+Sema::ActOnEeroSubscriptAssignment(Scope *S,
++Sema::ActOnObjectSubscriptExpr(Scope *S, Expr *Base, SourceLocation LLoc,
++                               Expr *Idx, SourceLocation RLoc) {
++
++  // Not really an object operation, but reject strict enum indexes
++  if (Idx->getType()->isStrictEnumeralType()) {
++    return ExprError(Diag(LLoc, diag::err_typecheck_subscript_not_integer)
++                     << Idx->getSourceRange());
++  }
++  // Support object "[]" operator for integer and NSRange subscripts (array
++  // objects), and for object subscripts (KVC and dictionaries).
++  // If anything else, just pass through (return empty expr).
++  if (Base->getType()->isObjCObjectPointerType()) {
++    std::string SelName;
++    if (Idx->getType()->isIntegerType()) {
++      SelName = "objectAtIndex";
++    } else if (Idx->getType()->isObjCObjectPointerType()) {
++      SelName = "valueForKey";
++    } else { // check for NSRange index
++      // Make sure type NSRange is defined. If not, don't recognize
++      // NSRange subscripts.
++      ParsedType RangeType = 
++          getTypeName(PP.getIdentifierTable().getOwn("NSRange"), 
++                      LLoc, 
++                      getCurScope());
++      if (!RangeType.get().isNull() && Idx->getType() == RangeType.get())
++          SelName = "subarrayWithRange";
++    }
++    if (!SelName.empty()) {
++      IdentifierInfo &II = PP.getIdentifierTable().getOwn(SelName);      
++      Selector Sel = PP.getSelectorTable().getUnarySelector(&II);
++      if (!Sel.isNull()) {
++        return ActOnInstanceMessage(S,
++                                    Base, 
++                                    Sel,
++                                    LLoc,
++                                    RLoc,
++                                    RLoc,
++                                    MultiExprArg(*this,&Idx,1));
++      } else {
++        // Something strange went wrong if we got here
++        return ExprError();
++      }
++    }
++  }
++  return ExprEmpty();
++}
++
++/// Eero: support object "[]=" operator for integer or NSRange 
++/// subscripts (arrays) and for object subscripts (KVC and dictionaries).
++ExprResult
++Sema::ActOnObjectSubscriptAssignment(Scope *S,
 +                                   Expr *Base, SourceLocation BLoc,
 +                                   Expr *Idx, SourceLocation ILoc,
 +                                   Expr *RHS, SourceLocation ELoc) {
 +  ExprResult result = ExprError();
 +  Selector Sel;
-+  Expr* args[2];
++  Expr* args[2] = {0, 0};
 +
-+  if (Idx->getType()->isIntegerType() &&          // Array-like operation
++  if (Idx->getType()->isIntegerType() &&          // array-like object
 +      !Idx->getType()->isStrictEnumeralType()) {
-+    IdentifierInfo* selParts[] = { &PP.getIdentifierTable().getOwn("replaceObjectAtIndex"), 
-+                                   &PP.getIdentifierTable().getOwn("withObject") };    
++
++    IdentifierInfo* selParts[] = 
++        { &PP.getIdentifierTable().getOwn("replaceObjectAtIndex"), 
++          &PP.getIdentifierTable().getOwn("withObject") };    
++
 +    Sel = PP.getSelectorTable().getSelector(2, selParts);
 +    args[0] = Idx;
 +    args[1] = RHS;
++
 +  } else if (Idx->getType()->isObjCObjectPointerType()) { // KVC (or Dictionary)
-+    IdentifierInfo* selParts[] = { &PP.getIdentifierTable().getOwn("setValue"), 
-+                                   &PP.getIdentifierTable().getOwn("forKey") };
++
++    IdentifierInfo* selParts[] = 
++        { &PP.getIdentifierTable().getOwn("setValue"), 
++          &PP.getIdentifierTable().getOwn("forKey") };
++
 +    Sel = PP.getSelectorTable().getSelector(2, selParts);
 +    args[0] = RHS;
 +    args[1] = Idx;
-+  } else {
++
++  } else { // check for NSRange subscript (array-like object)
++
++    // Make sure type NSRange is defined. If not, don't recognize
++    // NSRange subscripts.
++    ParsedType RangeType = 
++        getTypeName(PP.getIdentifierTable().getOwn("NSRange"), 
++                    ILoc, 
++                    getCurScope());
++    if (!RangeType.get().isNull() && Idx->getType() == RangeType.get()) {
++      IdentifierInfo* selParts[] = 
++          { &PP.getIdentifierTable().getOwn("replaceObjectsInRange"), 
++            &PP.getIdentifierTable().getOwn("withObjectsFromArray") };    
++
++      Sel = PP.getSelectorTable().getSelector(2, selParts);
++      args[0] = Idx;
++      args[1] = RHS;
++    }
++  }
++
++  if (args[0] == 0) { // unknown subscript type
 +    result = ExprError(Diag(BLoc, diag::err_typecheck_subscript_not_integer)
 +                       << Idx->getSourceRange());
 +  }
@@ -1214,7 +1273,7 @@ Index: lib/Sema/SemaExpr.cpp
  /// Check an ext-vector component access expression.
  ///
  /// VK should be set in advance to the value kind of the base
-@@ -5136,7 +5228,67 @@
+@@ -5136,7 +5281,67 @@
    if (isa<ParenListExpr>(castExpr))
      return ActOnCastOfParenListExpr(S, LParenLoc, RParenLoc, castExpr,
                                      castTInfo);
@@ -1282,7 +1341,7 @@ Index: lib/Sema/SemaExpr.cpp
    return BuildCStyleCastExpr(LParenLoc, castTInfo, RParenLoc, castExpr);
  }
  
-@@ -6246,6 +6398,33 @@
+@@ -6246,6 +6451,33 @@
      return Compatible;
    }
  
@@ -1316,7 +1375,7 @@ Index: lib/Sema/SemaExpr.cpp
    // This check seems unnatural, however it is necessary to ensure the proper
    // conversion of functions/arrays. If the conversion were done for all
    // DeclExpr's (created by ActOnIdExpression), it would mess up the unary
-@@ -7970,6 +8149,29 @@
+@@ -7970,6 +8202,29 @@
        << lhs->getSourceRange() << rhs->getSourceRange();
  }
  
@@ -1346,7 +1405,7 @@ Index: lib/Sema/SemaExpr.cpp
  /// CreateBuiltinBinOp - Creates a new built-in binary operation with
  /// operator @p Opc at location @c TokLoc. This routine only supports
  /// built-in operations; ActOnBinOp handles overloaded operators.
-@@ -8276,6 +8478,13 @@
+@@ -8276,6 +8531,13 @@
    assert((lhs != 0) && "ActOnBinOp(): missing left expression");
    assert((rhs != 0) && "ActOnBinOp(): missing right expression");
  
@@ -1360,7 +1419,7 @@ Index: lib/Sema/SemaExpr.cpp
    // Emit warnings for tricky precedence issues, e.g. "bitfield & 0x4 == 0"
    DiagnoseBinOpPrecedence(*this, Opc, TokLoc, lhs, rhs);
  
-@@ -8454,6 +8663,18 @@
+@@ -8454,6 +8716,18 @@
  // Unary Operators.  'Tok' is the token for the operator.
  ExprResult Sema::ActOnUnaryOp(Scope *S, SourceLocation OpLoc,
                                tok::TokenKind Op, Expr *Input) {
@@ -1379,7 +1438,7 @@ Index: lib/Sema/SemaExpr.cpp
    return BuildUnaryOp(S, OpLoc, ConvertTokenKindToUnaryOpcode(Op), Input);
  }
  
-@@ -9728,3 +9949,312 @@
+@@ -9728,3 +10002,312 @@
    Diag(Loc, diag::err_ovl_unresolvable) << E->getSourceRange();
    return ExprError();
  }
@@ -3199,7 +3258,15 @@ Index: lib/Parse/ParseExpr.cpp
 ===================================================================
 --- lib/Parse/ParseExpr.cpp	(revision 129311)
 +++ lib/Parse/ParseExpr.cpp	(working copy)
-@@ -274,6 +274,14 @@
+@@ -223,6 +223,7 @@
+     return ParseThrowExpression();
+ 
+   ExprResult LHS(ParseCastExpression(false));
++  LHS = ParseRangeIfPresent(LHS);
+   return ParseRHSOfBinaryExpression(move(LHS), prec::Assignment);
+ }
+ 
+@@ -274,6 +275,14 @@
      if (NextTokPrec < MinPrec)
        return move(LHS);
  
@@ -3214,7 +3281,7 @@ Index: lib/Parse/ParseExpr.cpp
      // Consume the operator, saving the operator token for error reporting.
      Token OpToken = Tok;
      ConsumeToken();
-@@ -294,6 +302,10 @@
+@@ -294,6 +303,10 @@
            LHS = ExprError();
            TernaryMiddle = 0;
          }
@@ -3225,7 +3292,7 @@ Index: lib/Parse/ParseExpr.cpp
        } else {
          // Special case handling of "X ? Y : Z" where Y is empty:
          //   logical-OR-expression '?' ':' conditional-expression   [GNU]
-@@ -422,8 +434,12 @@
+@@ -422,8 +435,12 @@
                                         isAddressOfOperand,
                                         NotCastExpr,
                                         TypeOfCast);
@@ -3239,7 +3306,7 @@ Index: lib/Parse/ParseExpr.cpp
    return move(Res);
  }
  
-@@ -634,6 +650,32 @@
+@@ -634,6 +651,32 @@
      // Consume the identifier so that we can see if it is followed by a '(' or
      // '.'.
      IdentifierInfo &II = *Tok.getIdentifierInfo();
@@ -3272,7 +3339,7 @@ Index: lib/Parse/ParseExpr.cpp
      SourceLocation ILoc = ConsumeToken();
      
      // Support 'Class.property' and 'super.property' notation.
-@@ -660,6 +702,7 @@
+@@ -660,6 +703,7 @@
      // that identifier, this is probably a message send with a missing open
      // bracket. Treat it as such. 
      if (getLang().ObjC1 && &II == Ident_super && !InMessageExpression &&
@@ -3280,7 +3347,7 @@ Index: lib/Parse/ParseExpr.cpp
          getCurScope()->isInObjcMethodScope() &&
          ((Tok.is(tok::identifier) &&
           (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) ||
-@@ -675,6 +718,7 @@
+@@ -675,6 +719,7 @@
      // appropriately. Also take this path if we're performing code
      // completion after an Objective-C class name.
      if (getLang().ObjC1 && 
@@ -3288,7 +3355,7 @@ Index: lib/Parse/ParseExpr.cpp
          ((Tok.is(tok::identifier) && !InMessageExpression) || 
           Tok.is(tok::code_completion))) {
        const Token& Next = NextToken();
-@@ -715,9 +759,23 @@
+@@ -715,9 +760,23 @@
      Name.setIdentifier(&II, ILoc);
      Res = Actions.ActOnIdExpression(getCurScope(), ScopeSpec, Name, 
                                      Tok.is(tok::l_paren), isAddressOfOperand);
@@ -3312,7 +3379,7 @@ Index: lib/Parse/ParseExpr.cpp
      Res = Actions.ActOnCharacterConstant(Tok);
      ConsumeToken();
      break;
-@@ -1012,9 +1070,21 @@
+@@ -1012,9 +1071,21 @@
      ConsumeCodeCompletionToken();
      return ParseCastExpression(isUnaryExpression, isAddressOfOperand, 
                                 NotCastExpr, TypeOfCast);
@@ -3335,7 +3402,7 @@ Index: lib/Parse/ParseExpr.cpp
        return ParsePostfixExpressionSuffix(ParseObjCMessageExpression());
      // FALL THROUGH.      
    default:
-@@ -1050,6 +1120,13 @@
+@@ -1050,6 +1121,13 @@
    // parsed, see if there are any postfix-expression pieces here.
    SourceLocation Loc;
    while (1) {
@@ -3349,7 +3416,7 @@ Index: lib/Parse/ParseExpr.cpp
      switch (Tok.getKind()) {
      case tok::code_completion:
        if (InMessageExpression)
-@@ -1060,11 +1137,26 @@
+@@ -1060,11 +1138,26 @@
        LHS = ExprError();
        break;
          
@@ -3376,7 +3443,7 @@ Index: lib/Parse/ParseExpr.cpp
            (NextToken().is(tok::colon) || NextToken().is(tok::r_square))) {
          LHS = ParseObjCMessageExpressionBody(SourceLocation(), SourceLocation(),
                                               ParsedType(), LHS.get());
-@@ -1082,7 +1174,7 @@
+@@ -1082,7 +1175,7 @@
        // actually another message send.  In this case, do some look-ahead to see
        // if the contents of the square brackets are obviously not a valid
        // expression and recover by pretending there is no suffix.
@@ -3385,7 +3452,7 @@ Index: lib/Parse/ParseExpr.cpp
            isSimpleObjCMessageExpression())
          return move(LHS);
            
-@@ -1092,6 +1184,21 @@
+@@ -1092,6 +1185,21 @@
        SourceLocation RLoc = Tok.getLocation();
  
        if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
@@ -3397,17 +3464,17 @@ Index: lib/Parse/ParseExpr.cpp
 +            SourceLocation ELoc = ConsumeToken(); // Eat the "="
 +            ExprResult RHS(ParseCastExpression(false));
 +            if (!RHS.isInvalid()) {
-+              return Actions.ActOnEeroSubscriptAssignment(getCurScope(), 
-+                                                          LHS.take(), Loc,
-+                                                          Idx.take(), RLoc,
-+                                                          RHS.take(), ELoc);
++              return Actions.ActOnObjectSubscriptAssignment(getCurScope(), 
++                                                            LHS.take(), Loc,
++                                                            Idx.take(), RLoc,
++                                                            RHS.take(), ELoc);
 +            }
 +          }
 +        }
          LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.take(), Loc,
                                                Idx.take(), RLoc);
        } else
-@@ -1618,6 +1725,16 @@
+@@ -1618,6 +1726,16 @@
      ConsumeCodeCompletionToken();
      return ExprError();
    }
@@ -3424,7 +3491,7 @@ Index: lib/Parse/ParseExpr.cpp
    
    if (ExprType >= CompoundStmt && Tok.is(tok::l_brace)) {
      Diag(Tok, diag::ext_gnu_statement_expr);
-@@ -1684,6 +1801,14 @@
+@@ -1684,6 +1802,14 @@
          // returns the parsed type to the callee.
          if (stopIfCastExpr)
            return ExprResult();
@@ -3439,7 +3506,7 @@ Index: lib/Parse/ParseExpr.cpp
          
          // Reject the cast of super idiom in ObjC.
          if (Tok.is(tok::identifier) && getLang().ObjC1 &&
-@@ -1889,7 +2014,7 @@
+@@ -1889,7 +2015,7 @@
  
    // If this block has arguments, parse them.  There is no ambiguity here with
    // the expression case, because the expression case requires a parameter list.
@@ -3448,7 +3515,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseParenDeclarator(ParamInfo);
      // Parse the pieces after the identifier as if we had "int(...)".
      // SetIdentifier sets the source range end, but in this case we're past
-@@ -1909,7 +2034,8 @@
+@@ -1909,7 +2035,8 @@
  
      // Inform sema that we are starting a block.
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
@@ -3458,7 +3525,7 @@ Index: lib/Parse/ParseExpr.cpp
      ParseBlockId();
    } else {
      // Otherwise, pretend we saw (void).
-@@ -1930,16 +2056,58 @@
+@@ -1930,16 +2057,58 @@
      Actions.ActOnBlockArguments(ParamInfo, getCurScope());
    }
  
@@ -3519,6 +3586,110 @@ Index: lib/Parse/ParseExpr.cpp
    BlockScope.Exit();
    if (!Stmt.isInvalid())
      Result = Actions.ActOnBlockStmtExpr(CaretLoc, Stmt.take(), getCurScope());
+@@ -1947,3 +2116,103 @@
+     Actions.ActOnBlockError(CaretLoc, getCurScope());
+   return move(Result);
+ }
++
++/// Eero: parse expression 'left ... right' as an NSRange compound
++/// literal expression: (NSRange){ left, (right - left) + 1 }
++///
++ExprResult Parser::ParseRangeIfPresent(ExprResult LHS) {
++
++  if (getLang().Eero && Tok.is(tok::ellipsis) &&
++      (!Tok.isAtStartOfLine() || ParenCount > 0 || BracketCount > 0)) {
++
++    // Make sure type NSRange is defined. If not, skip all this and ignore
++    // this notation.
++    ParsedType RangeType = 
++        Actions.getTypeName(PP.getIdentifierTable().getOwn("NSRange"), 
++                            Tok.getLocation(), 
++                            getCurScope());
++    if (!RangeType.get().isNull()) {
++      // Make sure LHS is an integer type
++      const QualType ltype = LHS.get()->getType();
++      if (!ltype.isNull() && 
++          ltype->isIntegerType() &&
++          !ltype->isStrictEnumeralType()) {
++
++        SourceLocation EllipsisLoc = ConsumeToken(); // the "..."
++
++        ExprResult RHS(ParseCastExpression(false));
++        const QualType rtype = RHS.get()->getType();
++
++        // Make sure RHS is an integer type
++        if (!rtype.isNull() && 
++            rtype->isIntegerType() &&
++            !rtype->isStrictEnumeralType()) {
++
++          SourceLocation LLoc = LHS.get()->getLocStart();
++          SourceLocation RLoc = RHS.get()->getLocEnd();
++
++          // If constant expressions, make sure neither left nor right are 
++          // negative. This is actually better checking than what NSMakeRange 
++          // or a compound literal initializer gets us.
++          llvm::APSInt lValue;
++          llvm::APSInt rValue;
++          if ((LHS.get()->isIntegerConstantExpr(lValue, Actions.Context) &&
++               lValue.isSigned() && lValue.isNegative()) ||
++              (RHS.get()->isIntegerConstantExpr(rValue, Actions.Context) &&
++               rValue.isSigned() && rValue.isNegative())) {
++            // Report as error, but keep going
++            Diag(RHS.get()->getLocStart(),
++                                  diag::err_expected) << 
++                                  "unsigned expression" <<
++                                  RHS.get()->getSourceRange();
++          }
++
++          // Compute length from (right - left) + 1
++
++          ExprResult LengthExpr = 
++              Actions.ActOnBinOp(getCurScope(), EllipsisLoc,
++                                 tok::minus, 
++                                 RHS.get(), 
++                                 LHS.get());
++
++          Token One;
++          One.setKind(tok::numeric_constant);
++          One.setLiteralData("1");
++          One.setLength(1);
++          One.setLocation(EllipsisLoc);
++
++          ExprResult OneExpr = Actions.ActOnNumericConstant(One);
++
++          LengthExpr = 
++              Actions.ActOnBinOp(getCurScope(), EllipsisLoc,
++                                 tok::plus, 
++                                 LengthExpr.take(), 
++                                 OneExpr.take() );
++
++          // Build (NSRange){ location, length } compound literal expression
++
++          ExprVector InitExprs(Actions);
++          InitExprs.push_back(LHS.release());
++          InitExprs.push_back(LengthExpr.release());
++
++          ExprResult Result = 
++              Actions.ActOnInitList(LLoc, 
++                                    move_arg(InitExprs),
++                                    RLoc);
++          
++          LHS = Actions.ActOnCompoundLiteral(LLoc, 
++                                             RangeType, 
++                                             RLoc, 
++                                             Result.take());
++        } else {
++          return ExprError(Diag(RHS.get()->getLocStart(),
++                                diag::err_expected) << "integer" <<
++                                RHS.get()->getSourceRange());
++        }
++      }
++    }
++  }
++  return LHS;
++}
++
++
 Index: lib/Parse/ParseStmt.cpp
 ===================================================================
 --- lib/Parse/ParseStmt.cpp	(revision 129311)
