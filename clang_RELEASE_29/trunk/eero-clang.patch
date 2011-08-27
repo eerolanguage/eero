@@ -161,19 +161,26 @@ Index: include/clang/Sema/Sema.h
    bool LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
                             bool InUnqualifiedLookup = false);
    bool LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
-@@ -1792,6 +1796,11 @@
+@@ -1792,6 +1796,18 @@
                                          Stmt *First, Expr *Second,
                                          SourceLocation RParenLoc, Stmt *Body);
  
-+  StmtResult ActOnEeroForStrictEnumStmt(SourceLocation ForLoc,
-+                                        Stmt *First, 
-+                                        ParsedType EnumTy, 
-+                                        Stmt *Body);
++  /// Eero: "for <StrictEnumType> i in <StrictEnumType>" loop
++  StmtResult ActOnForStrictEnumStmt(SourceLocation ForLoc,
++                                    Stmt *First, 
++                                    ParsedType EnumTy, 
++                                    Stmt *Body);
++
++  /// Eero: "for <int> i in <NSRange>" loop
++  StmtResult ActOnForRangeStmt(SourceLocation ForColLoc,
++                               Stmt *First, 
++                               Expr *Second,
++                               Stmt *Body);
 +
    StmtResult ActOnGotoStmt(SourceLocation GotoLoc,
                             SourceLocation LabelLoc,
                             LabelDecl *TheDecl);
-@@ -2014,6 +2023,18 @@
+@@ -2014,6 +2030,18 @@
    ExprResult CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                                               Expr *Idx, SourceLocation RLoc);
  
@@ -192,7 +199,7 @@ Index: include/clang/Sema/Sema.h
    ExprResult BuildMemberReferenceExpr(Expr *Base, QualType BaseType,
                                        SourceLocation OpLoc, bool IsArrow,
                                        CXXScopeSpec &SS,
-@@ -2172,6 +2193,42 @@
+@@ -2172,6 +2200,42 @@
    // __null
    ExprResult ActOnGNUNullExpr(SourceLocation TokenLoc);
  
@@ -235,7 +242,7 @@ Index: include/clang/Sema/Sema.h
    //===------------------------- "Block" Extension ------------------------===//
  
    /// ActOnBlockStart - This callback is invoked when a block literal is
-@@ -4627,6 +4684,11 @@
+@@ -4627,6 +4691,11 @@
                                    SourceLocation RBracLoc,
                                    MultiExprArg Args);
  
@@ -806,15 +813,17 @@ Index: lib/Sema/SemaStmt.cpp
    // C99 6.8.4.2p3: The expression shall be an integer constant.
    // However, GCC allows any evaluatable integer expression.
    if (!LHSVal->isTypeDependent() && !LHSVal->isValueDependent() &&
-@@ -936,6 +979,110 @@
+@@ -936,6 +979,218 @@
    return Owned(static_cast<Stmt*>(Result.get()));
  }
  
++
++/// Eero: "for <StrictEnumType> i in <StrictEnumType>" loop
 +StmtResult 
-+Sema::ActOnEeroForStrictEnumStmt(SourceLocation ForLoc,
-+                                 Stmt *First, 
-+                                 ParsedType EnumTy, 
-+                                 Stmt *Body) {
++Sema::ActOnForStrictEnumStmt(SourceLocation ForLoc,
++                             Stmt *First, 
++                             ParsedType EnumTy, 
++                             Stmt *Body) {
 +
 +  assert(getLangOptions().Eero && First &&
 +         "The parser shouldn't call this if there is no expr before 'in'.");
@@ -903,6 +912,112 @@ Index: lib/Sema/SemaStmt.cpp
 +                                           BO_LE,
 +                                           varExpr,
 +                                           endExpr );
++
++  ExprResult incrExpr = CreateBuiltinUnaryOp(SourceLocation(),
++                                             UO_PostInc,
++                                             varExpr );
++
++  return Owned(new (Context) ForStmt(Context, initStmt, 
++                                     condExpr.take(), 0, 
++                                     incrExpr.take(), Body, ForLoc, 
++                                     SourceLocation(), SourceLocation()));
++}
++
++/// Eero: "for <int> i in <NSRange>" loop
++StmtResult 
++Sema::ActOnForRangeStmt(SourceLocation ForLoc,
++                        Stmt *First, 
++                        Expr* Second, 
++                        Stmt *Body) {
++
++  assert(getLangOptions().Eero && First &&
++         "The parser shouldn't call this if there is no expr before 'in'.");
++
++  QualType FirstType;
++  bool hasDeclaration;
++  Expr* varExpr;
++  if (DeclStmt *DS = dyn_cast<DeclStmt>(First)) {
++    if (!DS->isSingleDecl())
++      return StmtError(Diag((*DS->decl_begin())->getLocation(),
++                       diag::err_toomany_element_decls));
++
++    hasDeclaration = true;  
++    Decl *D = DS->getSingleDecl();
++    FirstType = cast<ValueDecl>(D)->getType();
++    // C99 6.8.5p3: The declaration part of a 'for' statement shall only
++    // declare identifiers for objects having storage class 'auto' or
++    // 'register'.
++    VarDecl *VD = cast<VarDecl>(D);
++    if (VD->isLocalVarDecl() && !VD->hasLocalStorage())
++      return StmtError(Diag(VD->getLocation(),
++                            diag::err_non_variable_decl_in_for));
++
++    ValueDecl *valDecl = cast<ValueDecl>(D);
++    varExpr = new (Context) DeclRefExpr(valDecl, FirstType, VK_LValue, SourceLocation());
++  } else {
++    varExpr = cast<Expr>(First);
++    if (!varExpr->isTypeDependent() && !varExpr->isLValue()) {
++      return StmtError(Diag(First->getLocStart(),
++                 diag::err_selector_element_not_lvalue)
++        << First->getSourceRange());
++    }
++    hasDeclaration = false;
++    FirstType = static_cast<Expr*>(First)->getType();
++  }
++
++  if (!FirstType->isIntegerType() || FirstType->isStrictEnumeralType())
++      Diag(ForLoc, diag::err_selector_element_type)
++        << FirstType << First->getSourceRange();
++
++  // Begin loop at <NSRange>.location
++  UnqualifiedId Name;
++  Name.setIdentifier(&(PP.getIdentifierTable().getOwn("location")),
++                     Second->getLocStart());
++  CXXScopeSpec SS;
++  ExprResult beginExpr = 
++      ActOnMemberAccessExpr(getCurScope(), 
++                            Second, 
++                            Second->getLocStart(), 
++                            tok::period, 
++                            SS, Name, 0, false);
++
++  // End loop at <NSRange>.location + <NSRange>.length
++  Name.setIdentifier(&(PP.getIdentifierTable().getOwn("length")),
++                     Second->getLocStart());
++  ExprResult lengthExpr = 
++      ActOnMemberAccessExpr(getCurScope(),
++                            Second, 
++                            Second->getLocStart(), 
++                            tok::period, 
++                            SS, Name, 0, false);
++  ExprResult endExpr = 
++      CreateBuiltinBinOp(First->getLocStart(),
++                         BO_Add,
++                         beginExpr.get(),
++                         lengthExpr.take());
++
++  ExprResult assignExpr = 
++      CreateBuiltinBinOp(First->getLocStart(),
++                         BO_Assign,
++                         varExpr,
++                         beginExpr.take());
++
++  Stmt* initStmt; 
++  if (hasDeclaration) {
++    Stmt* statements[2] = { First, assignExpr.take() };
++    initStmt = new (Context) CompoundStmt(Context,
++                                          statements,
++                                          2,
++                                          SourceLocation(),
++                                          SourceLocation());
++  } else {
++    initStmt = assignExpr.take();
++  }
++
++  ExprResult condExpr = CreateBuiltinBinOp(SourceLocation(),
++                                           BO_LT,
++                                           varExpr,
++                                           endExpr.take() );
 +
 +  ExprResult incrExpr = CreateBuiltinUnaryOp(SourceLocation(),
 +                                             UO_PostInc,
@@ -3064,7 +3179,7 @@ Index: lib/Parse/ParseObjc.cpp
        ///  Parse the expression after ':'
        
        if (Tok.is(tok::code_completion)) {
-@@ -2122,7 +2566,12 @@
+@@ -2122,7 +2566,14 @@
          return ExprError();
        }
        
@@ -3074,11 +3189,13 @@ Index: lib/Parse/ParseObjc.cpp
 +        Res = ParseAssignmentExpression();
 +      } else {
 +        Res = ParseCastExpression(false); // make higher prec than assignment
++        // but NSRange "..." is special, so handle it here
++        Res = ParseRangeIfPresent(Res);
 +      }
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2156,17 +2605,33 @@
+@@ -2156,17 +2607,33 @@
          return ExprError();
        }
              
@@ -3118,7 +3235,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2188,7 +2653,7 @@
+@@ -2188,7 +2655,7 @@
      return ExprError();
    }
      
@@ -3127,7 +3244,7 @@ Index: lib/Parse/ParseObjc.cpp
      if (Tok.is(tok::identifier))
        Diag(Tok, diag::err_expected_colon);
      else
-@@ -2200,7 +2665,8 @@
+@@ -2200,7 +2667,8 @@
      return ExprError();
    }
  
@@ -3137,7 +3254,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    unsigned nKeys = KeyIdents.size();
    if (nKeys == 0)
-@@ -2284,7 +2750,13 @@
+@@ -2284,7 +2752,13 @@
  ///       @protocol ( protocol-name )
  ExprResult
  Parser::ParseObjCProtocolExpression(SourceLocation AtLoc) {
@@ -3152,7 +3269,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    if (Tok.isNot(tok::l_paren))
      return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@protocol");
-@@ -2297,6 +2769,14 @@
+@@ -2297,6 +2771,14 @@
    IdentifierInfo *protocolId = Tok.getIdentifierInfo();
    ConsumeToken();
  
@@ -3167,7 +3284,7 @@ Index: lib/Parse/ParseObjc.cpp
    SourceLocation RParenLoc = MatchRHSPunctuation(tok::r_paren, LParenLoc);
  
    return Owned(Actions.ParseObjCProtocolExpression(protocolId, AtLoc, ProtoLoc,
-@@ -2306,7 +2786,16 @@
+@@ -2306,7 +2788,16 @@
  ///     objc-selector-expression
  ///       @selector '(' objc-keyword-selector ')'
  ExprResult Parser::ParseObjCSelectorExpression(SourceLocation AtLoc) {
@@ -3185,7 +3302,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    if (Tok.isNot(tok::l_paren))
      return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@selector");
-@@ -2319,7 +2808,7 @@
+@@ -2319,7 +2810,7 @@
      Actions.CodeCompleteObjCSelector(getCurScope(), KeyIdents.data(),
                                       KeyIdents.size());
      ConsumeCodeCompletionToken();
@@ -3194,7 +3311,7 @@ Index: lib/Parse/ParseObjc.cpp
      return ExprError();
    }
    
-@@ -2330,7 +2819,7 @@
+@@ -2330,7 +2821,7 @@
  
    KeyIdents.push_back(SelIdent);
    unsigned nColons = 0;
@@ -3203,7 +3320,7 @@ Index: lib/Parse/ParseObjc.cpp
      while (1) {
        if (Tok.is(tok::coloncolon)) { // Handle :: in C++.
          ++nColons;
-@@ -2340,14 +2829,14 @@
+@@ -2340,14 +2831,14 @@
  
        ++nColons;
        ConsumeToken(); // Eat the ':'.
@@ -3220,7 +3337,7 @@ Index: lib/Parse/ParseObjc.cpp
          return ExprError();
        }
  
-@@ -2359,8 +2848,33 @@
+@@ -2359,8 +2850,33 @@
          break;
      }
    }
@@ -3586,7 +3703,7 @@ Index: lib/Parse/ParseExpr.cpp
    BlockScope.Exit();
    if (!Stmt.isInvalid())
      Result = Actions.ActOnBlockStmtExpr(CaretLoc, Stmt.take(), getCurScope());
-@@ -1947,3 +2116,103 @@
+@@ -1947,3 +2116,104 @@
      Actions.ActOnBlockError(CaretLoc, getCurScope());
    return move(Result);
  }
@@ -3630,15 +3747,16 @@ Index: lib/Parse/ParseExpr.cpp
 +          // or a compound literal initializer gets us.
 +          llvm::APSInt lValue;
 +          llvm::APSInt rValue;
-+          if ((LHS.get()->isIntegerConstantExpr(lValue, Actions.Context) &&
-+               lValue.isSigned() && lValue.isNegative()) ||
-+              (RHS.get()->isIntegerConstantExpr(rValue, Actions.Context) &&
-+               rValue.isSigned() && rValue.isNegative())) {
++          if (LHS.get()->isIntegerConstantExpr(lValue, Actions.Context) &&
++              lValue.isSigned() && lValue.isNegative())
 +            // Report as error, but keep going
-+            Diag(RHS.get()->getLocStart(),
-+                                  diag::err_expected) << 
-+                                  "unsigned expression" <<
-+                                  RHS.get()->getSourceRange();
++            Diag(LHS.get()->getLocStart(), diag::err_expected) << 
++                 "unsigned expression" << LHS.get()->getSourceRange();
++          if (RHS.get()->isIntegerConstantExpr(rValue, Actions.Context) &&
++              rValue.isSigned() && rValue.isNegative()) {
++            // Report as error, but keep going
++            Diag(RHS.get()->getLocStart(), diag::err_expected) << 
++                 "unsigned expression" << RHS.get()->getSourceRange();
 +          }
 +
 +          // Compute length from (right - left) + 1
@@ -4212,20 +4330,44 @@ Index: lib/Parse/ParseStmt.cpp
    // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
    // there is no compound stmt.  C90 does not have this clause.  We only do this
    // if the body isn't a compound statement to avoid push/pop in common cases.
-@@ -1179,6 +1393,12 @@
+@@ -1178,7 +1392,36 @@
+   if (!ForEach)
      return Actions.ActOnForStmt(ForLoc, LParenLoc, FirstPart.take(), SecondPart,
                                  SecondVar, ThirdPart, RParenLoc, Body.take());
++  if (getLang().Eero) {
++    // these all assume a first part
++    if (Value.isInvalid())
++      return StmtError();
  
-+  if (getLang().Eero && !StrictEnumType.isInvalid())
-+    return Actions.ActOnEeroForStrictEnumStmt(ForLoc, 
-+                                              FirstPart.take(), 
-+                                              StrictEnumType.take(), 
-+                                              Body.take());
++    // Check for a strict enum type name after the "in" (loop entire 
++    // range of enums)
++    if (!StrictEnumType.isInvalid()) {
++      return Actions.ActOnForStrictEnumStmt(ForLoc, 
++                                            FirstPart.take(), 
++                                            StrictEnumType.take(), 
++                                            Body.take());
++    }
++    // Check for an NSRange expression after the "in".    
++    // First make sure type NSRange is defined. If not, don't recognize
++    // NSRange for loops.
++    ParsedType RangeType = 
++        Actions.getTypeName(PP.getIdentifierTable().getOwn("NSRange"), 
++                            SourceLocation(),
++                            getCurScope());
++
++    if (!RangeType.get().isNull() && 
++        Collection.get()->getType() == RangeType.get()) {
++      return Actions.ActOnForRangeStmt(ForLoc, 
++                                       FirstPart.take(), 
++                                       Collection.take(), 
++                                       Body.take());
++    }
++  }
 +
    // FIXME: It isn't clear how to communicate the late destruction of 
    // C++ temporaries used to create the collection.
    return Actions.ActOnObjCForCollectionStmt(ForLoc, LParenLoc, FirstPart.take(), 
-@@ -1259,7 +1479,7 @@
+@@ -1259,7 +1502,7 @@
    SourceLocation ReturnLoc = ConsumeToken();  // eat the 'return'.
  
    ExprResult R;
@@ -4234,7 +4376,7 @@ Index: lib/Parse/ParseStmt.cpp
      if (Tok.is(tok::code_completion)) {
        Actions.CodeCompleteReturn(getCurScope());
        ConsumeCodeCompletionToken();
-@@ -1719,3 +1939,54 @@
+@@ -1719,3 +1962,54 @@
  
    return Actions.ActOnCXXCatchBlock(CatchLoc, ExceptionDecl, Block.take());
  }
