@@ -2245,7 +2245,71 @@ Index: lib/Parse/ParseDecl.cpp
      Decl *TheDecl = Actions.ParsedFreeStandingDeclSpec(getCurScope(), AS_none,
                                                             DS);
      DS.complete(TheDecl);
-@@ -498,6 +500,7 @@
+@@ -462,12 +464,63 @@
+     }
+   }
+ 
++  // Eero "nested functions" (blocks, really). Look for a function 
++  // declaration followed by indented statements.
++  ExprResult FuncAsBlockResult(true);
++  unsigned FuncInfoIndex = 0;
++  if (getLang().Eero &&
++      !InSystemHeader(PrevTokLocation) && 
++      !AllowFunctionDefinitions && D.isFunctionDeclarator(FuncInfoIndex) &&
++      Tok.isAtStartOfLine() &&
++      Column(Tok.getLocation()) > Column(D.getSourceRange().getBegin())) {
++      
++    // Save off the function signature for the block
++    DeclaratorChunk FunctionInfo = D.getTypeObject(FuncInfoIndex);
++
++    // Turn the function decl into a block pointer decl
++    D.AddInnermostTypeInfo(
++        DeclaratorChunk::getBlockPointer(DS.getTypeQualifiers(),
++                                         SourceLocation(), 
++                                         DS.takeAttributes()));
++
++    SourceLocation DeclaratorLoc = D.getSourceRange().getBegin();
++
++    ParseScope BlockScope(this, Scope::BlockScope | Scope::FnScope |
++                                Scope::BreakScope | Scope::ContinueScope |
++                                Scope::DeclScope);
++
++    Declarator ParamInfo(DS, Declarator::BlockLiteralContext);
++    ParamInfo.SetSourceRange(D.getSourceRange());
++    ParamInfo.AddTypeInfo(FunctionInfo, DeclaratorLoc);
++    
++    Actions.ActOnBlockStart(DeclaratorLoc, getCurScope());
++    Actions.ActOnBlockArguments(ParamInfo, getCurScope());
++
++    SourceLocation BodyStartLoc = Tok.getLocation();
++    InsertToken(tok::l_brace);
++    StmtResult Stmt = ParseCompoundStatementBody();
++
++    BlockScope.Exit();
++
++    FuncAsBlockResult = 
++        Actions.ActOnBlockStmtExpr(BodyStartLoc, Stmt.take(), getCurScope());
++  }
++
+   llvm::SmallVector<Decl *, 8> DeclsInGroup;
+   Decl *FirstDecl = ParseDeclarationAfterDeclarator(D);
+   D.complete(FirstDecl);
+   if (FirstDecl)
+     DeclsInGroup.push_back(FirstDecl);
+ 
++  if (getLang().Eero && FirstDecl && FuncAsBlockResult.isUsable()) {
++    Actions.AddInitializerToDecl(FirstDecl, FuncAsBlockResult.take(), false, false);
++    // Also make the variable itself a const
++    ValueDecl* valdecl = cast<ValueDecl>(FirstDecl);
++    QualType vartype = valdecl->getType();
++    vartype.addConst();
++    valdecl->setType(vartype);
++  }
++
+   // If we don't have a comma, it is either the end of the list (a ';') or an
+   // error, bail out.
+   while (Tok.is(tok::comma)) {
+@@ -498,6 +551,7 @@
      *DeclEnd = Tok.getLocation();
  
    if (Context != Declarator::ForContext &&
@@ -2253,7 +2317,7 @@ Index: lib/Parse/ParseDecl.cpp
        ExpectAndConsume(tok::semi,
                         Context == Declarator::FileContext
                           ? diag::err_invalid_token_after_toplevel_declarator
-@@ -511,6 +514,11 @@
+@@ -511,6 +565,11 @@
          ConsumeToken();
      }
    }
@@ -2265,7 +2329,7 @@ Index: lib/Parse/ParseDecl.cpp
  
    return Actions.FinalizeDeclaratorGroup(getCurScope(), DS,
                                           DeclsInGroup.data(),
-@@ -890,6 +898,7 @@
+@@ -890,6 +949,7 @@
                                          DeclSpecContext DSContext) {  
    DS.SetRangeStart(Tok.getLocation());
    DS.SetRangeEnd(Tok.getLocation());
@@ -2273,7 +2337,7 @@ Index: lib/Parse/ParseDecl.cpp
    while (1) {
      bool isInvalid = false;
      const char *PrevSpec = 0;
-@@ -897,6 +906,16 @@
+@@ -897,6 +957,16 @@
  
      SourceLocation Loc = Tok.getLocation();
  
@@ -2290,7 +2354,7 @@ Index: lib/Parse/ParseDecl.cpp
      switch (Tok.getKind()) {
      default:
      DoneWithDeclSpec:
-@@ -1231,6 +1250,13 @@
+@@ -1231,6 +1301,13 @@
      case tok::kw_typedef:
        isInvalid = DS.SetStorageClassSpec(DeclSpec::SCS_typedef, Loc, PrevSpec,
                                           DiagID, getLang());
@@ -2304,7 +2368,7 @@ Index: lib/Parse/ParseDecl.cpp
        break;
      case tok::kw_extern:
        if (DS.isThreadSpecified())
-@@ -1249,7 +1275,7 @@
+@@ -1249,7 +1326,7 @@
                                           DiagID, getLang());
        break;
      case tok::kw_auto:
@@ -2313,7 +2377,7 @@ Index: lib/Parse/ParseDecl.cpp
          if (isKnownToBeTypeSpecifier(GetLookAheadToken(1))) {
            isInvalid = DS.SetStorageClassSpec(DeclSpec::SCS_auto, Loc, PrevSpec,
                                             DiagID, getLang());
-@@ -1905,10 +1931,10 @@
+@@ -1905,10 +1982,10 @@
  
      if (Tok.is(tok::semi)) {
        ConsumeToken();
@@ -2326,7 +2390,7 @@ Index: lib/Parse/ParseDecl.cpp
        ExpectAndConsume(tok::semi, diag::err_expected_semi_decl_list);
        // Skip to end of block or statement to avoid ext-warning on extra ';'.
        SkipUntil(tok::r_brace, true, true);
-@@ -1929,6 +1955,10 @@
+@@ -1929,6 +2006,10 @@
                        attrs.getList());
    StructScope.Exit();
    Actions.ActOnTagFinishDefinition(getCurScope(), TagDecl, RBraceLoc);
@@ -2337,7 +2401,7 @@ Index: lib/Parse/ParseDecl.cpp
  }
  
  /// ParseEnumSpecifier
-@@ -1960,7 +1990,7 @@
+@@ -1960,7 +2041,7 @@
  ///
  void Parser::ParseEnumSpecifier(SourceLocation StartLoc, DeclSpec &DS,
                                  const ParsedTemplateInfo &TemplateInfo,
@@ -2346,7 +2410,7 @@ Index: lib/Parse/ParseDecl.cpp
    // Parse the tag portion of this.
    if (Tok.is(tok::code_completion)) {
      // Code completion for an enum name.
-@@ -2170,7 +2200,7 @@
+@@ -2170,7 +2251,7 @@
    }
    
    if (Tok.is(tok::l_brace))
@@ -2355,7 +2419,7 @@ Index: lib/Parse/ParseDecl.cpp
  
    // FIXME: The DeclSpec should keep the locations of both the keyword
    // and the name (if there is one).
-@@ -2189,7 +2219,7 @@
+@@ -2189,7 +2270,7 @@
  ///       enumeration-constant:
  ///         identifier
  ///
@@ -2364,7 +2428,7 @@ Index: lib/Parse/ParseDecl.cpp
    // Enter the scope of the enum body and start the definition.
    ParseScope EnumScope(this, Scope::DeclScope);
    Actions.ActOnTagStartDefinition(getCurScope(), EnumDecl);
-@@ -2204,6 +2234,10 @@
+@@ -2204,6 +2285,10 @@
  
    Decl *LastEnumConstDecl = 0;
  
@@ -2375,7 +2439,7 @@ Index: lib/Parse/ParseDecl.cpp
    // Parse the enumerator-list.
    while (Tok.is(tok::identifier)) {
      IdentifierInfo *Ident = Tok.getIdentifierInfo();
-@@ -2218,10 +2252,24 @@
+@@ -2218,10 +2303,24 @@
      if (Tok.is(tok::equal)) {
        EqualLoc = ConsumeToken();
        AssignedVal = ParseConstantExpression();
@@ -2400,7 +2464,7 @@ Index: lib/Parse/ParseDecl.cpp
      // Install the enumerator constant into EnumDecl.
      Decl *EnumConstDecl = Actions.ActOnEnumConstant(getCurScope(), EnumDecl,
                                                      LastEnumConstDecl,
-@@ -2392,7 +2440,7 @@
+@@ -2392,7 +2491,7 @@
  
      // GNU ObjC bizarre protocol extension: <proto1,proto2> with implicit 'id'.
    case tok::less:
@@ -2409,7 +2473,7 @@ Index: lib/Parse/ParseDecl.cpp
  
    case tok::kw___cdecl:
    case tok::kw___stdcall:
-@@ -2420,6 +2468,18 @@
+@@ -2420,6 +2519,18 @@
        return false;
      if (TryAltiVecVectorToken())
        return true;
@@ -2428,7 +2492,7 @@ Index: lib/Parse/ParseDecl.cpp
      // Fall through.
    case tok::kw_typename: // typename T::type
      // Annotate typenames and C++ scope specifiers.  If we get one, just
-@@ -2453,6 +2513,10 @@
+@@ -2453,6 +2564,10 @@
  
      // storage-class-specifier
    case tok::kw_typedef:
@@ -2439,7 +2503,7 @@ Index: lib/Parse/ParseDecl.cpp
    case tok::kw_extern:
    case tok::kw___private_extern__:
    case tok::kw_static:
-@@ -2512,7 +2576,7 @@
+@@ -2512,7 +2627,7 @@
  
      // GNU ObjC bizarre protocol extension: <proto1,proto2> with implicit 'id'.
    case tok::less:
@@ -2448,7 +2512,7 @@ Index: lib/Parse/ParseDecl.cpp
  
    case tok::kw___declspec:
    case tok::kw___cdecl:
-@@ -2979,7 +3043,9 @@
+@@ -2979,7 +3094,9 @@
    if (D.getIdentifier())
      MaybeParseCXX0XAttributes(D);
  
@@ -2459,7 +2523,7 @@ Index: lib/Parse/ParseDecl.cpp
      if (Tok.is(tok::l_paren)) {
        // The paren may be part of a C++ direct initializer, eg. "int x(1);".
        // In such a case, check if we actually have a function declarator; if it
-@@ -3018,6 +3084,18 @@
+@@ -3018,6 +3135,18 @@
    SourceLocation StartLoc = ConsumeParen();
    assert(!D.isPastIdentifier() && "Should be called before passing identifier");
  
@@ -2478,7 +2542,7 @@ Index: lib/Parse/ParseDecl.cpp
    // Eat any attributes before we look at whether this is a grouping or function
    // declarator paren.  If this is a grouping paren, the attribute applies to
    // the type being built up, for example:
-@@ -3381,6 +3459,16 @@
+@@ -3381,6 +3510,16 @@
              << FixItHint::CreateInsertion(EllipsisLoc, ", ");
          }
        }
