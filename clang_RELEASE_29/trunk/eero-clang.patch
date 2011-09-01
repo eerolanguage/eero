@@ -741,7 +741,7 @@ Index: lib/Sema/SemaDecl.cpp
        // C++ [dcl.enum]p4: Following the closing brace of an
        // enum-specifier, each enumerator has the type of its
        // enumeration.
-@@ -8068,6 +8123,177 @@
+@@ -8068,6 +8123,176 @@
                             NumPositiveBits, NumNegativeBits);
  }
  
@@ -817,16 +817,15 @@ Index: lib/Sema/SemaDecl.cpp
 +    EnumDecl::enumerator_iterator enumEnd = enumDecl->enumerator_end();
 +
 +    // Create the first string, representing an invalid (zero) value
-+    const char *InvalidValStr = "!!!_INVALID_VALUE_!!!";
-+    const unsigned InvalidValStrLen = strlen(InvalidValStr) + 1;
++    const char InvalidValStr[] = "!!!_INVALID_VALUE_!!!";
 +    QualType InvalidStrTy = 
 +        Context.getConstantArrayType(ConstCharTy,
-+                                     llvm::APInt(32, InvalidValStrLen),
++                                     llvm::APInt(32, sizeof(InvalidValStr)),
 +                                     ArrayType::Normal, 0);
 +    ExprResult InvalidValueStrExpr = 
 +        Owned(StringLiteral::Create(Context,
 +                                    InvalidValStr,
-+                                    InvalidValStrLen, 
++                                    sizeof(InvalidValStr), 
 +                                    false, 
 +                                    InvalidStrTy,
 +                                    &Loc, 1));
