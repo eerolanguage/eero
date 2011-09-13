@@ -2736,15 +2736,16 @@ Index: lib/Parse/ParseObjc.cpp
 ===================================================================
 --- lib/Parse/ParseObjc.cpp	(revision 139291)
 +++ lib/Parse/ParseObjc.cpp	(working copy)
-@@ -18,6 +18,7 @@
+@@ -18,6 +18,8 @@
  #include "clang/Sema/PrettyDeclStackTrace.h"
  #include "clang/Sema/Scope.h"
  #include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringSet.h"
 +#include "clang/AST/ASTConsumer.h"
  using namespace clang;
  
  
-@@ -92,7 +93,7 @@
+@@ -92,7 +94,7 @@
    }
  
    // Consume the ';'.
@@ -2753,7 +2754,7 @@ Index: lib/Parse/ParseObjc.cpp
      return 0;
  
    return Actions.ActOnForwardClassDeclaration(atLoc, ClassNames.data(),
-@@ -325,12 +326,20 @@
+@@ -325,12 +327,20 @@
  
    while (1) {
      // If this is a method prototype, parse it.
@@ -2775,7 +2776,7 @@ Index: lib/Parse/ParseObjc.cpp
        ExpectAndConsume(tok::semi, diag::err_expected_semi_after_method_proto,
                         "", tok::semi);
        continue;
-@@ -362,7 +371,7 @@
+@@ -362,7 +372,7 @@
      }
      
      // If we don't have an @ directive, parse it as a function definition.
@@ -2784,7 +2785,7 @@ Index: lib/Parse/ParseObjc.cpp
        // The code below does not consume '}'s because it is afraid of eating the
        // end of a namespace.  Because of the way this code is structured, an
        // erroneous r_brace would cause an infinite loop if not handled here.
-@@ -377,7 +386,12 @@
+@@ -377,7 +387,12 @@
      }
  
      // Otherwise, we have an @ directive, eat the @.
@@ -2798,7 +2799,7 @@ Index: lib/Parse/ParseObjc.cpp
      if (Tok.is(tok::code_completion)) {
        Actions.CodeCompleteObjCAtDirective(getCurScope(), ObjCImpDecl, true);
        ConsumeCodeCompletionToken();
-@@ -442,6 +456,12 @@
+@@ -442,6 +457,12 @@
        DeclSpec DS;
        ParseStructDeclaration(DS, Callback);
  
@@ -2811,7 +2812,7 @@ Index: lib/Parse/ParseObjc.cpp
        ExpectAndConsume(tok::semi, diag::err_expected_semi_decl_list, "",
                         tok::at);
        break;
-@@ -583,10 +603,18 @@
+@@ -583,10 +604,18 @@
  ///
  Decl *Parser::ParseObjCMethodPrototype(Decl *IDecl,
                                         tok::ObjCKeywordKind MethodImplKind) {
@@ -2833,7 +2834,7 @@ Index: lib/Parse/ParseObjc.cpp
    Decl *MDecl = ParseObjCMethodDecl(mLoc, methodType, IDecl,MethodImplKind);
    // Since this rule is used for both method declarations and definitions,
    // the caller is (optionally) responsible for consuming the ';'.
-@@ -698,6 +726,10 @@
+@@ -698,6 +727,10 @@
    case tok::kw___alignof:
      IdentifierInfo *II = Tok.getIdentifierInfo();
      SelectorLoc = ConsumeToken();
@@ -2844,7 +2845,7 @@ Index: lib/Parse/ParseObjc.cpp
      return II;
    }
  }
-@@ -761,9 +793,11 @@
+@@ -761,9 +794,11 @@
  ///     '(' objc-type-qualifiers[opt] ')'
  ///
  ParsedType Parser::ParseObjCTypeName(ObjCDeclSpec &DS, bool IsParameter) {
@@ -2858,7 +2859,7 @@ Index: lib/Parse/ParseObjc.cpp
    SourceLocation TypeStartLoc = Tok.getLocation();
  
    // Parse type qualifiers, in, inout, etc.
-@@ -776,6 +810,12 @@
+@@ -776,6 +811,12 @@
        Ty = TypeSpec.get();
    }
  
@@ -2871,7 +2872,7 @@ Index: lib/Parse/ParseObjc.cpp
    if (Tok.is(tok::r_paren))
      ConsumeParen();
    else if (Tok.getLocation() == TypeStartLoc) {
-@@ -790,6 +830,49 @@
+@@ -790,6 +831,49 @@
    return Ty;
  }
  
@@ -2921,7 +2922,7 @@ Index: lib/Parse/ParseObjc.cpp
  ///   objc-method-decl:
  ///     objc-selector
  ///     objc-keyword-selector objc-parmlist[opt]
-@@ -824,17 +907,32 @@
+@@ -824,17 +908,32 @@
                                    tok::ObjCKeywordKind MethodImplKind) {
    ParsingDeclRAIIObject PD(*this);
  
@@ -2956,7 +2957,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    // If attributes exist before the method, parse them.
    ParsedAttributes attrs;
-@@ -852,7 +950,7 @@
+@@ -852,7 +951,7 @@
    IdentifierInfo *SelIdent = ParseObjCSelectorPiece(selLoc);
  
    // An unnamed colon is valid.
@@ -2965,7 +2966,7 @@ Index: lib/Parse/ParseObjc.cpp
      Diag(Tok, diag::err_expected_selector_for_method)
        << SourceRange(mLoc, Tok.getLocation());
      // Skip until we get a ; or {}.
-@@ -860,8 +958,27 @@
+@@ -860,8 +959,27 @@
      return 0;
    }
  
@@ -2994,7 +2995,7 @@ Index: lib/Parse/ParseObjc.cpp
      // If attributes exist after the method, parse them.
      if (getLang().ObjC2)
        MaybeParseGNUAttributes(attrs);
-@@ -881,19 +998,46 @@
+@@ -881,19 +999,48 @@
    llvm::SmallVector<Sema::ObjCArgInfo, 12> ArgInfos;
    ParseScope PrototypeScope(this,
                              Scope::FunctionPrototypeScope|Scope::DeclScope);
@@ -3009,6 +3010,8 @@ Index: lib/Parse/ParseObjc.cpp
 +  llvm::SmallVector<UnqualifiedId, 12> ArgIds;
 +  llvm::SmallVector<ExprResult, 12> DefaultExprs;
 +
++  // For Eero: used to track generated names (for making them unique)
++  llvm::StringSet<> GeneratedNames;
    
    while (1) {
      Sema::ObjCArgInfo ArgInfo;
@@ -3044,7 +3047,7 @@ Index: lib/Parse/ParseObjc.cpp
        ArgInfo.Type = ParseObjCTypeName(ArgInfo.DeclSpec, true);
  
      // If attributes exist before the argument name, parse them.
-@@ -917,19 +1061,109 @@
+@@ -917,19 +1064,113 @@
        KeyIdents.pop_back();
        break;
      }
@@ -3084,9 +3087,13 @@ Index: lib/Parse/ParseObjc.cpp
 +            generatedName = "_";
 +          if (!inImplementation) {
 +            // make the name unique to avoid compiler warnings:
-+            // name, name1, name2, ..., Name0 
-+            if (ArgInfos.size() > 0)
++            // name, name__1, name__2, ..., name__0 
++            if (GeneratedNames.count(generatedName)) {
++              generatedName += "__";
 +              generatedName += ('0' + ArgInfos.size() % 10);
++            } else {
++              GeneratedNames.insert(generatedName);
++            }
 +          }
 +          ArgInfo.Name = &PP.getIdentifierTable().get(generatedName);
 +          ArgInfo.NameLoc = ArgTypeLoc;
@@ -3162,7 +3169,7 @@ Index: lib/Parse/ParseObjc.cpp
      // Code completion for the next piece of the selector.
      if (Tok.is(tok::code_completion)) {
        ConsumeCodeCompletionToken();
-@@ -941,17 +1175,24 @@
+@@ -941,17 +1182,24 @@
                                                   KeyIdents.size());
        break;
      }
@@ -3190,7 +3197,7 @@ Index: lib/Parse/ParseObjc.cpp
    // Parse the (optional) parameter list.
    while (Tok.is(tok::comma)) {
      ConsumeToken();
-@@ -996,7 +1237,122 @@
+@@ -996,7 +1244,122 @@
                                          MethodImplKind, isVariadic);
    // Leave prototype scope.
    PrototypeScope.Exit();
@@ -3313,7 +3320,7 @@ Index: lib/Parse/ParseObjc.cpp
    PD.complete(Result);
    return Result;
  }
-@@ -1113,14 +1469,20 @@
+@@ -1113,14 +1476,20 @@
      }
  
      // Set the default visibility to private.
@@ -3335,7 +3342,7 @@ Index: lib/Parse/ParseObjc.cpp
        switch (Tok.getObjCKeywordID()) {
        case tok::objc_private:
        case tok::objc_public:
-@@ -1170,7 +1532,7 @@
+@@ -1170,7 +1539,7 @@
  
      if (Tok.is(tok::semi)) {
        ConsumeToken();
@@ -3344,7 +3351,7 @@ Index: lib/Parse/ParseObjc.cpp
        Diag(Tok, diag::err_expected_semi_decl_list);
        // Skip to end of block or statement
        SkipUntil(tok::r_brace, true, true);
-@@ -1470,7 +1832,10 @@
+@@ -1470,7 +1839,10 @@
        break;
      ConsumeToken(); // consume ','
    }
@@ -3355,7 +3362,7 @@ Index: lib/Parse/ParseObjc.cpp
    return 0;
  }
  
-@@ -1534,24 +1899,38 @@
+@@ -1534,24 +1906,38 @@
  StmtResult
  Parser::ParseObjCSynchronizedStmt(SourceLocation atLoc) {
    ConsumeToken(); // consume synchronized
@@ -3402,7 +3409,7 @@ Index: lib/Parse/ParseObjc.cpp
    }
    // Enter a scope to hold everything within the compound stmt.  Compound
    // statements can always hold declarations.
-@@ -1581,8 +1960,17 @@
+@@ -1581,8 +1967,17 @@
  
    ConsumeToken(); // consume try
    if (Tok.isNot(tok::l_brace)) {
@@ -3422,7 +3429,7 @@ Index: lib/Parse/ParseObjc.cpp
    }
    StmtVector CatchStmts(Actions);
    StmtResult FinallyStmt;
-@@ -1592,21 +1980,30 @@
+@@ -1592,21 +1987,30 @@
    if (TryBody.isInvalid())
      TryBody = Actions.ActOnNullStmt(Tok.getLocation());
  
@@ -3462,7 +3469,7 @@ Index: lib/Parse/ParseObjc.cpp
          ParseScope CatchScope(this, Scope::DeclScope|Scope::AtCatchScope);
          if (Tok.isNot(tok::ellipsis)) {
            DeclSpec DS;
-@@ -1627,10 +2024,20 @@
+@@ -1627,10 +2031,20 @@
  
          if (Tok.is(tok::r_paren))
            RParenLoc = ConsumeParen();
@@ -3484,7 +3491,7 @@ Index: lib/Parse/ParseObjc.cpp
          if (Tok.is(tok::l_brace))
            CatchBody = ParseCompoundStatementBody();
          else
-@@ -1657,6 +2064,14 @@
+@@ -1657,6 +2071,14 @@
        ParseScope FinallyScope(this, Scope::DeclScope);
  
        StmtResult FinallyBody(true);
@@ -3499,7 +3506,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Tok.is(tok::l_brace))
          FinallyBody = ParseCompoundStatementBody();
        else
-@@ -1696,6 +2111,14 @@
+@@ -1696,6 +2118,14 @@
      ConsumeToken();
    }
  
@@ -3514,7 +3521,7 @@ Index: lib/Parse/ParseObjc.cpp
    // We should have an opening brace now.
    if (Tok.isNot(tok::l_brace)) {
      Diag(Tok, diag::err_expected_method_body);
-@@ -1934,8 +2357,9 @@
+@@ -1934,8 +2364,9 @@
  ///     type-name
  ///
  ExprResult Parser::ParseObjCMessageExpression() {
@@ -3526,7 +3533,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    if (Tok.is(tok::code_completion)) {
      Actions.CodeCompleteObjCMessageReceiver(getCurScope());
-@@ -2082,13 +2506,33 @@
+@@ -2082,13 +2513,33 @@
  
    llvm::SmallVector<IdentifierInfo *, 12> KeyIdents;
    ExprVector KeyExprs(Actions);
@@ -3562,7 +3569,7 @@ Index: lib/Parse/ParseObjc.cpp
          Diag(Tok, diag::err_expected_colon);
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2097,7 +2541,7 @@
+@@ -2097,7 +2548,7 @@
          return ExprError();
        }
  
@@ -3571,7 +3578,7 @@ Index: lib/Parse/ParseObjc.cpp
        ///  Parse the expression after ':'
        
        if (Tok.is(tok::code_completion)) {
-@@ -2122,7 +2566,14 @@
+@@ -2122,7 +2573,14 @@
          return ExprError();
        }
        
@@ -3587,7 +3594,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2156,17 +2607,33 @@
+@@ -2156,17 +2614,33 @@
          return ExprError();
        }
              
@@ -3627,7 +3634,7 @@ Index: lib/Parse/ParseObjc.cpp
        if (Res.isInvalid()) {
          // We must manually skip to a ']', otherwise the expression skipper will
          // stop at the ']' when it skips to the ';'.  We want it to skip beyond
-@@ -2188,7 +2655,7 @@
+@@ -2188,7 +2662,7 @@
      return ExprError();
    }
      
@@ -3636,7 +3643,7 @@ Index: lib/Parse/ParseObjc.cpp
      if (Tok.is(tok::identifier))
        Diag(Tok, diag::err_expected_colon);
      else
-@@ -2200,7 +2667,8 @@
+@@ -2200,7 +2674,8 @@
      return ExprError();
    }
  
@@ -3646,7 +3653,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    unsigned nKeys = KeyIdents.size();
    if (nKeys == 0)
-@@ -2284,7 +2752,13 @@
+@@ -2284,7 +2759,13 @@
  ///       @protocol ( protocol-name )
  ExprResult
  Parser::ParseObjCProtocolExpression(SourceLocation AtLoc) {
@@ -3661,7 +3668,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    if (Tok.isNot(tok::l_paren))
      return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@protocol");
-@@ -2297,6 +2771,14 @@
+@@ -2297,6 +2778,14 @@
    IdentifierInfo *protocolId = Tok.getIdentifierInfo();
    ConsumeToken();
  
@@ -3676,7 +3683,7 @@ Index: lib/Parse/ParseObjc.cpp
    SourceLocation RParenLoc = MatchRHSPunctuation(tok::r_paren, LParenLoc);
  
    return Owned(Actions.ParseObjCProtocolExpression(protocolId, AtLoc, ProtoLoc,
-@@ -2306,7 +2788,16 @@
+@@ -2306,7 +2795,16 @@
  ///     objc-selector-expression
  ///       @selector '(' objc-keyword-selector ')'
  ExprResult Parser::ParseObjCSelectorExpression(SourceLocation AtLoc) {
@@ -3694,7 +3701,7 @@ Index: lib/Parse/ParseObjc.cpp
  
    if (Tok.isNot(tok::l_paren))
      return ExprError(Diag(Tok, diag::err_expected_lparen_after) << "@selector");
-@@ -2319,7 +2810,7 @@
+@@ -2319,7 +2817,7 @@
      Actions.CodeCompleteObjCSelector(getCurScope(), KeyIdents.data(),
                                       KeyIdents.size());
      ConsumeCodeCompletionToken();
@@ -3703,7 +3710,7 @@ Index: lib/Parse/ParseObjc.cpp
      return ExprError();
    }
    
-@@ -2330,7 +2821,7 @@
+@@ -2330,7 +2828,7 @@
  
    KeyIdents.push_back(SelIdent);
    unsigned nColons = 0;
@@ -3712,7 +3719,7 @@ Index: lib/Parse/ParseObjc.cpp
      while (1) {
        if (Tok.is(tok::coloncolon)) { // Handle :: in C++.
          ++nColons;
-@@ -2340,14 +2831,14 @@
+@@ -2340,14 +2838,14 @@
  
        ++nColons;
        ConsumeToken(); // Eat the ':'.
@@ -3729,7 +3736,7 @@ Index: lib/Parse/ParseObjc.cpp
          return ExprError();
        }
  
-@@ -2359,8 +2850,33 @@
+@@ -2359,8 +2857,33 @@
          break;
      }
    }
