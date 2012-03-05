@@ -1,0 +1,31 @@
+//
+//    Original file on which this is based is
+//    Copyright (c) 1999-2008 Apple Inc.
+//    All rights reserved.
+//
+//
+// Support for Eero source code.
+//
+//
+// THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+// CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+// WITH THIS SOFTWARE.
+//
+(
+    // Source code file types
+    {
+        Identifier = sourcecode.eero;
+        BasedOn = sourcecode;
+        Name = "Eero source files";
+        Extensions = (eero, ero);
+        ComputerLanguage = default;
+        Language = "xcode.lang.simpleColoring";
+        AppliesToBuildRules = no;
+        GccDialectName = "eero";
+        UTI = "org.eerolanguage.eero-source"; 
+    },
+)
