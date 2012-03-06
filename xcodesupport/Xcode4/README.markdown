@@ -3,7 +3,7 @@ Preliminary support for Xcode 4.x
 
 ***Register Eero File Types.app***
 
-This application creates an Eero source code file Uniform Type Identifier (UTI) and registers it with the system. This allows files with extensions `.eero` and `.ero` to be recognized as source code files, including from the Finder and within Xcode. It can be copied to any location, and only needs to be run once. However, the application should not be deleted, since it contains the UTI export and associated icon files.
+This application creates an Eero source code file Uniform Type Identifier (UTI) and registers it with the system. This allows files with extensions `.eero` and `.ero` to be recognized as source code files, including from the Finder and within Xcode. It can be copied to any location, and only needs to be run once. However, the application should not be deleted, since it contains the UTI export and associated icons.
 
 
 ***Eero.xcplugin***
@@ -18,4 +18,4 @@ Application *Register Eero File Types.app* should have been run (just once) prio
 
 * Syntax colorizing is currently very limited -- the "Generic" source code highlighting is chosen for Eero source files by default. This can be overridden manually to any supported language (Objective-C++ is suggested), but no definition for Eero is provided at this time.
 * Autocompletion is not supported.
-* "Live issues" (only-the-fly syntax checking) is not currently supported.
+* "Live issues" (on-the-fly syntax checking) is not currently supported.
