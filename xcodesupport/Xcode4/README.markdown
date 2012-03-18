@@ -16,6 +16,7 @@ Application *Register Eero File Types.app* should have been run (just once) prio
 
 **Limitations**
 
+* Does not work correctly with Xcode 4.3.1 -- compilation errors/warnings are not highlighting line in editor (working in 4.2). Under investigation.
 * Syntax colorizing is currently very limited -- the "Generic" source code highlighting is chosen for Eero source files by default. This can be overridden manually to any supported language (Objective-C++ is suggested), but no definition for Eero is provided at this time.
 * Autocompletion is not supported.
 * "Live issues" (on-the-fly syntax checking) is not currently supported.
