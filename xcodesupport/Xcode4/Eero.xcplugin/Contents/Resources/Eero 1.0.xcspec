@@ -1,6 +1,7 @@
 /**
-    LLVM Compiler 3.0 build task
+    Eero LLVM Compiler 3.0 build task
 
+    Original file on which this is based is
     Copyright (c) 2000-2011 Apple Inc.  All rights reserved.
 */
 
@@ -9,8 +10,8 @@
         Identifier = "org.eerolanguage.compilers.clang.1_0";
         Type = Compiler;
         Class = "XCCompilerSpecificationClang";
-        Name = "Eero LLVM compiler 1.0 (based on LLVM 3.0)";
-        Description = "Eero LLVM compiler 1.0";
+        Name = "Eero LLVM compiler 3.0 (based on LLVM 3.0)";
+        Description = "Eero LLVM compiler 3.0";
         Vendor = eerolanguage.org;
         Version = "1.0";
         IsAbstract = NO;
@@ -1513,7 +1514,7 @@
                 };
                 FileTypes = (
                     sourcecode.c.objc,
-                    "sourcecode.eero",
+                    sourcecode.eero,
                     sourcecode.cpp.objcpp,
                 );
                 // Category is hidden -- used by iPhoneSimulator to match runtime OS setup;
@@ -1633,16 +1634,18 @@
     },
     
     {
-        Identifier = "com.apple.compilers.llvm.clang.1_0.compiler";
+        Identifier = "org.eerolanguage.compilers.clang.1_0.compiler";
         Type = Compiler;
-        BasedOn = "com.apple.compilers.llvm.clang.1_0";
-        Name = "Apple LLVM compiler 3.0";
-        Description = "Apple LLVM compiler 3.0";
+        BasedOn = "org.eerolanguage.compilers.clang.1_0";
+        Name = "Eero LLVM compiler 3.0 (based on LLVM 3.0)";
+        Description = "Eero LLVM compiler 3.0";
         IsAbstract = YES;
         ShowInCompilerSelectionPopup = NO;
         Architectures = (
             i386,
             "x86_64",
+            armv6,
+            armv7,
         );
         "OptionConditionFlavors" = (
             arch,
@@ -1654,18 +1657,22 @@
         ExecCPlusPlusLinkerPath = "/usr/local/eerolanguage/bin/clang++";
         SupportsGeneratePreprocessedFile = YES;
         SupportsGenerateAssemblyFile = YES;
+        CommandResultsPostprocessor = "XCClangResultsPostprocessor";
+        SupportsSerializedDiagnostics = YES;
         Options = ();
     },
     
     {
-        Identifier = "com.apple.compilers.llvm.clang.1_0.analyzer";
+        Identifier = "org.eerolanguage.compilers.clang.1_0.analyzer";
         Type = Compiler;
-        BasedOn = "com.apple.compilers.llvm.clang.1_0";
+        BasedOn = "org.eerolanguage.compilers.clang.1_0";
         Name = "Static Analyzer";
-        Description = "Apple Clang Static Analyzer 3.0";
+        Description = "Eero Clang Static Analyzer 3.0";
         Architectures = (
             i386,
             "x86_64",
+            armv6,
+            armv7,
         );
         ExecPath = "$(CLANG)";
         RuleName = "Analyze $(InputFile)";
@@ -1686,7 +1693,7 @@
         FileTypes = (
             "sourcecode.c.c",
             "sourcecode.c.objc",
-            "sourcecode.c.objc",
+            "sourcecode.c.eero",
             "sourcecode.cpp.cpp",
             "sourcecode.cpp.objcpp",
         );
@@ -1760,11 +1767,11 @@
     },
     
     {
-        Identifier = "com.apple.compilers.llvm.clang.1_0.astbuilder";
+        Identifier = "org.eerolanguage.compilers.clang.1_0.astbuilder";
         Type = Compiler;
-        BasedOn = "com.apple.compilers.llvm.clang.1_0";
+        BasedOn = "org.eerolanguage.compilers.clang.1_0";
         Name = "AST Builder";
-        Description = "Apple Clang AST Builder 1.0";
+        Description = "Eero Clang AST Builder 1.0";
         FileTypes = (
             "sourcecode.c.c",
             "sourcecode.c.objc",
