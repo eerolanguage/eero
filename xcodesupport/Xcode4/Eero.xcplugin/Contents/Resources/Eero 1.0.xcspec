@@ -29,7 +29,7 @@
             sdk,
         );
         BuiltinJambaseRuleName = ProcessC;
-        ExecPath = "/usr/local/eerolanguage/bin/clang";
+        ExecPath = "$(PLATFORM_DEVELOPER_BIN_DIR)/clang";
         UseCPlusPlusCompilerDriverWhenBundlizing = Yes;
         CommandOutputParser = "XCClangCommandOutputParser";
         SupportsHeadermaps = Yes;
@@ -1654,7 +1654,7 @@
         FallbackTools = (
             "com.apple.compilers.llvmgcc42",
         );
-        ExecCPlusPlusLinkerPath = "/usr/local/eerolanguage/bin/clang++";
+        ExecCPlusPlusLinkerPath = "$(PLATFORM_DEVELOPER_BIN_DIR)/clang++";
         SupportsGeneratePreprocessedFile = YES;
         SupportsGenerateAssemblyFile = YES;
         CommandResultsPostprocessor = "XCClangResultsPostprocessor";
