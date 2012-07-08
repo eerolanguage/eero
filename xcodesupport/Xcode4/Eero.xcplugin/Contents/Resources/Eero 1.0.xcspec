@@ -9,6 +9,7 @@
     {
         Identifier = "org.eerolanguage.compilers.clang.1_0";
         Type = Compiler;
+        BasedOn = "com.apple.compilers.llvm.clang.1_0";
         Class = "XCCompilerSpecificationClang";
         Name = "Eero LLVM compiler 3.x (based on LLVM 3.x)";
         Description = "Eero LLVM compiler 3.x";
@@ -456,22 +457,6 @@
                 Name = "GCC_GENERATE_DEBUGGING_SYMBOLS";
                 Type = Boolean;
                 DefaultValue = YES;
-                Category = CodeGeneration;
-            },
-            {
-                Name = "GCC_OPTIMIZATION_LEVEL";
-                Type = Enumeration;
-                AllowedValues = (
-                    0,
-                    1,
-                    2,
-                    3,
-                    s,
-                );
-                DefaultValue = s;
-                CommandLineArgs = (
-                    "-O$(value)",
-                );
                 Category = CodeGeneration;
             },
             {
