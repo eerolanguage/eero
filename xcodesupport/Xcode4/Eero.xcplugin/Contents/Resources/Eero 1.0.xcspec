@@ -1,5 +1,5 @@
 /**
-    Eero LLVM Compiler 3.0 build task
+    Eero LLVM Compiler 3.x build task
 
     Original file on which this is based is
     Copyright (c) 2000-2011 Apple Inc.  All rights reserved.
@@ -10,8 +10,8 @@
         Identifier = "org.eerolanguage.compilers.clang.1_0";
         Type = Compiler;
         Class = "XCCompilerSpecificationClang";
-        Name = "Eero LLVM compiler 3.0 (based on LLVM 3.0)";
-        Description = "Eero LLVM compiler 3.0";
+        Name = "Eero LLVM compiler 3.x (based on LLVM 3.x)";
+        Description = "Eero LLVM compiler 3.x";
         Vendor = eerolanguage.org;
         Version = "1.0";
         IsAbstract = NO;
@@ -29,7 +29,7 @@
             sdk,
         );
         BuiltinJambaseRuleName = ProcessC;
-        ExecPath = "$(PLATFORM_DEVELOPER_BIN_DIR)/clang";
+        ExecPath = "/usr/local/eerolanguage/bin/clang";
         UseCPlusPlusCompilerDriverWhenBundlizing = Yes;
         CommandOutputParser = "XCClangCommandOutputParser";
         SupportsHeadermaps = Yes;
@@ -1637,8 +1637,8 @@
         Identifier = "org.eerolanguage.compilers.clang.1_0.compiler";
         Type = Compiler;
         BasedOn = "org.eerolanguage.compilers.clang.1_0";
-        Name = "Eero LLVM compiler 3.0 (based on LLVM 3.0)";
-        Description = "Eero LLVM compiler 3.0";
+        Name = "Eero LLVM compiler 3.x (based on LLVM 3.x)";
+        Description = "Eero LLVM compiler 3.x";
         IsAbstract = YES;
         ShowInCompilerSelectionPopup = NO;
         Architectures = (
@@ -1693,7 +1693,7 @@
         FileTypes = (
             "sourcecode.c.c",
             "sourcecode.c.objc",
-            "sourcecode.c.eero",
+            "sourcecode.eero",
             "sourcecode.cpp.cpp",
             "sourcecode.cpp.objcpp",
         );
