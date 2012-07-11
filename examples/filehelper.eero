@@ -1,0 +1,113 @@
+//---------------------------------------------------------------------------------------------
+// To compile and run this example from the command line:
+//
+// $ <path_to_eero_clang>/clang -fobjc-gc -framework Foundation filehelper.eero -o filehelper
+//
+// $ touch readme.txt
+// $ touch writeme.txt
+// $ ./filehelper
+//
+// You should see something like:
+//
+// 2012-07-10 20:39:02.191 filehelper[12485:903] File descriptor is 3 (regular file)
+// 2012-07-10 20:39:02.194 filehelper[12485:903] File descriptor is 4 (regular file)
+// 2012-07-10 20:39:02.194 filehelper[12485:903] Full path example: /tmp/examples/files
+//
+// Then:
+// $ cat writeme.txt
+//
+// And you should see:
+// ABCDEFG
+//
+// Note that this example uses garbage collection (-fobjc-gc compiler switch). 
+// Eero does assume any particular memory-management scheme, so traditional objc
+// reference counting could also be used (by adding appropriate 
+// autorelease/retain/release statements). ARC is supported as well, but currently 
+// requires an Apple-specific library.
+//
+//---------------------------------------------------------------------------------------------
+
+#import <Foundation/Foundation.h>
+
+
+interface FileHelper : Object  // "Object" is the same as "NSObject"
+
+  property (readonly)
+    String volumeName    // both are readonly properties
+    String volumeFormat  //
+
+  + pathStringWithComponents: Array, return String  // class method
+
+  openFile: String, [withPermissions: String], return FileHandle  // instance method
+
+end
+
+implementation FileHelper  // no '@' needed for objc keywords
+
+  private  // no "{}" needed for instance variables
+    int iBytesUsed
+    int iBytesFree
+
+  // "components" is the default arg variable name for "pathStringWithComponents"
+  + pathStringWithComponents: Array, return String
+    fullPathName := ''  // empty objc string literal implies mutable
+    for String component in components
+      fullPathName << '/' + component  // string concatenation with '+' and '<<'
+    return fullPathName
+
+  // "withPermissions" was declared optional, so default value is defined here
+  openFile: String path, withPermissions: String = 'readonly', return FileHandle
+    FileHandle handle = nil
+    if permissions == 'readonly' or permissions == 'r'
+      handle = FileHandle fileHandleForReadingAtPath: path
+    else if permissions == 'readwrite' or permissions == 'rw'
+      handle = FileHandle fileHandleForUpdatingAtPath: path
+    return handle
+
+end
+
+
+// Category on NSFileHandle to define/overload operators
+//
+implementation FileHandle (operators)
+  shiftLeft: String string  // overload "<<" operator to append string data to file
+    self writeData: (string dataUsingEncoding: NSUTF8StringEncoding)
+end
+
+
+int main() 
+ 
+  helper := FileHelper new  // declare variable "helper" via type inference
+
+  files := []  // empty array literal implies mutable
+  files addObject: (helper openFile: 'readme.txt')  // can group message in parens
+
+  writableFile := helper openFile: 'writeme.txt', withPermissions: 'rw'
+  files addObject: writableFile
+
+  writableFile << 'ABCDEFG' // using overloaded operator
+  writableFile << '\n'      //
+
+  for FileHandle handle in files  // all objects are pointers, so no '*' needed
+
+    descriptor := handle fileDescriptor
+    String type = nil
+
+    switch descriptor
+      case 0, 1, 2
+        type = 'stdin/out/err'
+      case 3 .. INT_MAX
+        type = 'regular file'
+      default
+        type = 'bad descriptor'
+
+    Log( 'File descriptor is %@ %@', (Number)descriptor, '(' + type + ')' )
+    handle closeFile
+
+  fullpath := FileHelper pathStringWithComponents: ['tmp', 'examples', 'files']
+  Log('Full path example: %@', fullpath)
+
+  return 0  // semicolons are optional almost everywhere
+
+
+
