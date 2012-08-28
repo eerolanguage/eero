@@ -14,9 +14,15 @@ To install the plugin, simply copy the bundle to ``~/Library/Application Support
 
 Application *Register Eero File Types.app* should have been run (just once) prior to using Eero source code files in a build. They will be recognized as source files, including by the compiler, linker, and from within the debugger (e.g. breakpoints and stepping work).
 
+
+***Colorizer***
+
+This script adds basic syntax colorizing for Eero source files to Xcode. It also enables code-folding based on indentation levels.
+
+
 **Limitations**
 
-* Syntax colorizing is currently very limited -- the "Generic" source code highlighting is chosen for Eero source files by default. This can be overridden manually to any supported language (Objective-C++ is suggested), but no definition for Eero is provided at this time.
+* Syntax colorizing is limited to lexical (keyword-based) parsing. Semantic recognition of types, functions, etc., is not supported.
 * Autocompletion is not supported (only partially working).
 * "Live issues" (on-the-fly compiling) is not currently supported.
 * ARC linker problem in Xcode 4.3.1, must disable to build. Under investigation.
