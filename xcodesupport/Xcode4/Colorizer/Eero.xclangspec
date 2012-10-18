@@ -36,6 +36,7 @@
 				implementation               ,			
 				interface                    ,			
 				protocol                     ,			
+				class                        ,			
 				selector                     ,			
 				finally                      ,			
 				synchronized                 ,			
@@ -284,3 +285,5 @@
 		};
 	},
 )
+
+
