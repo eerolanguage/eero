@@ -134,6 +134,7 @@
 			"SourceScannerClassName" = DVTPythonScanner;
 			IncludeRules = (
 				"xcode.lang.c.preprocessor",
+				"xcode.lang.comment",
 				"xcode.lang.comment.singleline",
 				"xcode.lang.string",
 				"xcode.lang.character",
@@ -160,6 +161,7 @@
 		Identifier = "xcode.lang.eero.lexer.simple";
 		Syntax = {
 			IncludeRules = (
+				"xcode.lang.comment",
 				"xcode.lang.comment.singleline",
 				"xcode.lang.string",
 				"xcode.lang.character",
