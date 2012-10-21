@@ -1,0 +1,102 @@
+
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     TemperatureConverter/ObjC/ApplicationDelegate.m
+//
+// Please see it for Apple license details.
+//
+// Abstract:  A simple application delegate. Initializes the application by registering
+// the custom value transformers with NSValueTransformer and ensures that reasonable default
+// data is presented to the user upon first launch.
+//
+#import <Cocoa/Cocoa.h>
+
+#import "ApplicationDelegate.h" // local ObjC header
+
+#import 'FahrenheitValueTransformer.h'
+#import 'CentigradeValueTransformer.h'
+#import 'RankineValueTransformer.h'
+
+implementation ApplicationDelegate
+
+  //--------------------------------------------------------------------------------------
+  + initialize
+
+    // Register our custom value transformers with NSValueTransformer.
+    // These names are used in the "Transformer" field of the bindings
+    // inspector within IB.    
+
+    ValueTransformer setValueTransformer: (CentigradeValueTransformer new autorelease),
+                                 forName: 'centrigradeFromKelvin'
+
+    ValueTransformer setValueTransformer: (FahrenheitValueTransformer new autorelease),
+                                 forName: 'fahrenheitFromKelvin'
+
+    ValueTransformer setValueTransformer: (RankineValueTransformer new autorelease),
+                                 forName: 'rankineFromKelvin'
+
+
+  //--------------------------------------------------------------------------------------
+  applicationWillFinishLaunching: Notification aNotification
+
+    // Register the Kelvin temperature for boiling water as the "first
+    // run" value that will appear in the UI. 
+
+    // Because the Kelvin temperature is stored as the value of the
+    // "LastTemperature" key of the Shared Defaults controller,
+    // whatever the user entered last will be automatically stored and
+    // used upon the next launch of the application. 
+
+    // Note that there is nothing particularly magical about value
+    // transformers.  You are free to use them to transform values
+    // within your code, as needed.   Since most people recognize
+    // 100.00 as the boiling point of water more readily than the
+    // kelvin value, the centigrade value transformer is used to
+    // convert the centigrade boiling point of water to the kelvin
+    // value.
+
+    centrigradeFromKelvinTransformer :=
+        ValueTransformer valueTransformerForName:'centrigradeFromKelvin'
+
+    Number kelvinWaterBoilingPoint =
+        centrigradeFromKelvinTransformer reverseTransformedValue: (Number)100.0
+
+    registrationDefaults := { 'LastTemperature' : kelvinWaterBoilingPoint }
+
+    UserDefaults.standardUserDefaults registerDefaults: registrationDefaults
+
+
+  //--------------------------------------------------------------------------------------
+  awakeFromNib
+
+    // Programatically bind a value transformer to the rankine value
+    // field.  The resulting binding is identical to the bindings
+    // configured in Interface Builder for the Centigrade and
+    // Fahrenheit fields.   We could also choose to bind a specific
+    // instance of a value transformer by using the
+    // "NSValueTransformer" option.  This could be used in a situation
+    // where the value transformer needs more information than just
+    // the value to perform the requested transformation.
+
+    bindingOptions := { 'NSValueTransformerName' : 'rankineFromKelvin' }
+
+    rankineTemperatureField bind: 'value',
+                         toObject: sharedUserDefaultsController,
+                      withKeyPath: 'values.LastTemperature',
+                          options: bindingOptions
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+

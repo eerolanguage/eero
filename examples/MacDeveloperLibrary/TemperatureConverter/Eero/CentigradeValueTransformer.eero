@@ -1,0 +1,52 @@
+
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     TemperatureConverter/ObjC/CentigradeValueTransformer.m
+//
+// Please see it for Apple license details.
+//
+#import <Foundation/Foundation.h>
+#import 'CentigradeValueTransformer.h'
+
+
+implementation CentigradeValueTransformer
+
+  //--------------------------------------------------------------------------------------
+  + transformedValueClass, return Class = Number class
+
+  //--------------------------------------------------------------------------------------
+  + allowsReverseTransformation, return BOOL = YES
+
+  //--------------------------------------------------------------------------------------
+  transformedValue: id, return id = nil
+
+    if value respondsToSelector: |doubleValue|
+
+      kelvinInputValue := (double)value  // handles String and Number
+      centigradeOutputValue := kelvinInputValue - 273.15
+
+      return (Number)centigradeOutputValue
+
+    else if value != nil
+      Exception raise: InternalInconsistencyException,
+               format: 'Value does not respond to -doubleValue. ' +
+                       'No idea what to do. (Value is an instance of %@).', (value class)
+
+  //--------------------------------------------------------------------------------------
+  reverseTransformedValue: id, return id = nil
+
+    if value respondsToSelector: |doubleValue|
+
+      centigradeInputValue := (double)value  // handles String and Number
+      kelvinOutputValue := centigradeInputValue + 273.15
+
+      return (Number)kelvinOutputValue
+
+    else if value != nil
+      Exception raise: InternalInconsistencyException,
+               format: 'Value does not respond to -doubleValue.  ' +
+                       'No idea what to do. (Value is an instance of %@).', (value class)
+
+end
+

@@ -1,0 +1,52 @@
+
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     TemperatureConverter/ObjC/RankineValueTransformer.m
+//
+// Please see it for Apple license details.
+//
+// Abstract: Converts Kelvin units to Rankine units.  Supports reverse transformations.
+//
+#import <Foundation/Foundation.h>
+#import 'RankineValueTransformer.h'
+
+implementation RankineValueTransformer
+
+  //--------------------------------------------------------------------------------------
+  + transformedValueClass, return Class = Number class
+
+  //--------------------------------------------------------------------------------------
+  + allowsReverseTransformation, return BOOL = YES
+
+  //--------------------------------------------------------------------------------------
+  transformedValue: id, return id = nil
+
+    if value respondsToSelector: |doubleValue|
+
+      kelvinInputValue := (double)value  // handles String and Number
+      rankineOutputValue := kelvinInputValue * 1.8
+
+      return (Number)rankineOutputValue
+
+    else if value != nil
+      Exception raise: InternalInconsistencyException,
+               format: 'Value does not respond to -doubleValue. ' +
+                       'No idea what to do. (Value is an instance of %@).', (value class)
+
+  //--------------------------------------------------------------------------------------
+  reverseTransformedValue: id, return id = nil
+
+    if value respondsToSelector: |doubleValue|
+
+      rankineInputValue := (double)value  // handles String and Number
+      kelvinOutputValue := rankineInputValue / 1.8
+
+      return (Number)kelvinOutputValue
+
+    else if value != nil
+      Exception raise: InternalInconsistencyException,
+               format: 'Value does not respond to -doubleValue.  ' +
+                       'No idea what to do. (Value is an instance of %@).', (value class)
+
+end

@@ -1,0 +1,87 @@
+{\rtf1\mac\ansicpg10000\cocoartf102
+{\fonttbl\f0\fswiss\fcharset77 Helvetica-Bold;\f1\fswiss\fcharset77 Helvetica-Oblique;\f2\fswiss\fcharset77 Helvetica;
+\f3\fswiss\fcharset77 Helvetica-BoldOblique;}
+{\colortbl;\red255\green255\blue255;}
+\vieww12140\viewh13440\viewkind0
+\pard\tx960\tx1920\tx2880\tx3840\tx4800\tx5760\tx6720\tx7680\tx8640\tx9600\ql\qnatural
+
+\f0\b\fs48 \cf0 Temperature Converter\
+\pard\tx960\tx1920\tx2880\tx3840\tx4800\tx5760\tx6720\tx7680\tx8640\tx9600\ql\qnatural
+
+\fs28 \cf0 \
+\pard\tx960\tx1920\tx2880\tx3840\tx4800\tx5760\tx6720\tx7680\tx8640\tx9600\ql\qnatural
+
+\f1\i\b0\fs24 \cf0 A simple example using NSValueTransformer to automatically convert data between different representations. The purpose of this example is to show how to create and use custom NSValueTransformer subclasses. Otherwise it is possible to create a temperature converter using "regular glue code" with less lines of code.\
+\
+
+\f2\i0 Temperature Converter presents a simple user interface through which the user can enter temperature values in any of four different units and the application will automatically convert and display the temperature in the other three units.  The four units are Kelvin, Centigrade, Fahrenheit, and-- the infrequently used-- Rankine temperature scale.\
+\
+Internally, the application stores temperature values in Kelvin and uses value transformers to transform the entered temperature value to Kelvin and then from Kelvin to the other scales needed.\
+\
+
+\f3\i\b\fs36 The Classes\
+
+\f2\i0\b0\fs24 \
+The application uses value transformer classes to convert between Kelvin and the other three units.  The 
+\f0\b RankineValueTransformer
+\f2\b0  and 
+\f0\b CentigradeValueTransformer
+\f2\b0  convert between Kelvin units and  Rankine and Centigrade units respectively.\
+\
+The 
+\f0\b FahrenheitValueTransformer 
+\f2\b0 converts uses the 
+\f0\b CentigradeValueTransformer 
+\f2\b0 to convert from Kelvin to Centigrade before converting the Centigrade value to the Fahrenheit temperature scale.   It is intended to demonstrate that value transformers can be chained quite easily.   Alternatively, the 
+\f0\b FahrenheitValueTransformer 
+\f2\b0 could have been implemented by subclassing 
+\f0\b CentigradeValueTransformer.\
+\
+
+\f2\b0 All three transformer classes implement reverse transformations.\
+\
+An instance of the 
+\f0\b ApplicationDelegate
+\f2\b0  can be found within the main interface file.   It acts as the application delegate and implements the 
+\f0\b -applicationWillFinishLaunching: 
+\f2\b0 method to register the three value transformer classes with the runtime via class methods provided by 
+\f0\b NSValueTransformer
+\f2\b0 .  The method also registers the boiling point of water as the default temperature to be displayed if the application has never been launched before.  Because it is more natural for most to think in Centigrade than Kelvin, an instance of 
+\f0\b CentigradeValueTransformer
+\f2\b0  is used directly to convert the boiling point of water from Centigrade to Kelvin before pushing it into the user defaults as a registration default.\
+\
+The 
+\f0\b ApplicationDelegate
+\f2\b0  programmatically configures the 
+\f0\b value
+\f2\b0  binding of the Rankine form cell to use the 
+\f0\b RankineValueTransformer
+\f2\b0 .   The resulting binding is identical to the configuration of the other field's value binding configuration as done within the 
+\f0\b MainMenu
+\f2\b0  nib file.\
+\
+
+\f3\i\b\fs36 The Interface\
+
+\f2\i0\b0\fs24 \
+The application presents the with four fields into which temperature values can be entered and the converted values will be displayed.   Each field has a 
+\f0\b value
+\f2\b0  binding that is connected to the 
+\f0\b LastTemperature
+\f2\b0  key of the 
+\f0\b Shared Defaults 
+\f2\b0 controller.   By using the 
+\f0\b Shared Defaults
+\f2\b0  controller, the last value entered by the user will automatically be stored into the user defaults database and will be used the next time the application is launched.\
+\
+The Centigrade and Fahrenheit fields each have their 
+\f0\b value
+\f2\b0  binding configured to use the appropriate value transformer.  The Rankine field's 
+\f0\b value
+\f2\b0  binding is programmatically configured in the 
+\f0\b -awakeFromNib
+\f2\b0  method of 
+\f0\b ApplicationDelegate.
+\f2\b0 \
+\
+}
