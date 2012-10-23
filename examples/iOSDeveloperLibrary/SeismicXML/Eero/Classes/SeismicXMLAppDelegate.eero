@@ -1,0 +1,245 @@
+//
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     SeismicXML/ObjC/SeismicXMLAppDelegate.m
+//
+// Please see it for Apple license details.
+//
+// Abstract: Delegate for the application, initiates the download of the XML data and parses the Earthquake
+//
+#import "SeismicXMLAppDelegate.h"
+#import "RootViewController.h"
+#import 'Earthquake.h'
+#import 'ParseOperation.h'
+
+// this framework was imported so we could use the kCFURLErrorNotConnectedToInternet error code
+#import <CFNetwork/CFNetwork.h>
+#import "LegacyMacros.h"
+
+#pragma mark SeismicXMLAppDelegate () 
+
+interface SeismicXMLAppDelegate ()
+
+  property (nonatomic, retain)
+    URLConnection  earthquakeFeedConnection
+    MutableData    earthquakeData           // the data returned from the URLConnection
+    OperationQueue parseQueue               // the queue that manages our Operation for parsing earthquake data
+
+  //------------------------------------------------------------------------------------------------
+  addEarthquakesToList: Array earthquakes
+
+  //------------------------------------------------------------------------------------------------
+  handleError: Error error
+
+end
+
+#pragma mark -
+#pragma mark SeismicXMLAppDelegate
+
+using prefix UI
+
+implementation SeismicXMLAppDelegate
+
+  synthesize window,
+             navigationController,
+             rootViewController,
+             earthquakeFeedConnection,
+             earthquakeData,
+             parseQueue
+
+  //------------------------------------------------------------------------------------------------
+  dealloc
+    earthquakeFeedConnection cancel
+    earthquakeFeedConnection release
+    
+    earthquakeData release
+    navigationController release
+    rootViewController release
+    window release
+    
+    parseQueue release
+    
+    NotificationCenter.defaultCenter removeObserver: self,
+                                               name: kAddEarthquakesNotif,
+                                             object: nil
+
+    NotificationCenter.defaultCenter removeObserver: self,
+                                               name: kEarthquakesErrorNotif,
+                                             object: nil
+    super dealloc
+
+  //------------------------------------------------------------------------------------------------
+  applicationDidFinishLaunching: Application application
+
+    // Add the navigation view controller to the window.
+    window addSubview: navigationController.view
+    
+    // Use NSURLConnection to asynchronously download the data. This means the main thread will not
+    // be blocked - the application will remain responsive to the user. 
+    //
+    // IMPORTANT! The main thread of the application should never be blocked!
+    // Also, avoid synchronous network access on any thread.
+    //
+    static feedURLString := 'http://earthquake.usgs.gov/eqcenter/catalogs/7day-M2.5.xml'
+
+    URLRequest earthquakeURLRequest =
+        URLRequest requestWithURL: (URL URLWithString: feedURLString)
+
+    self.earthquakeFeedConnection =
+        URLConnection connectionWithRequest: earthquakeURLRequest, delegate: self
+    
+    // Test the validity of the connection object. The most likely reason for the connection object
+    // to be nil is a malformed URL, which is a programmatic error easily detected during development.
+    // If the URL is more dynamic, then you should implement a more flexible validation technique,
+    // and be able to both recover from errors and communicate problems to the user in an
+    // unobtrusive manner.
+    assert(self.earthquakeFeedConnection != nil) // TODO: investigate legacy macros
+
+  
+    // Start the status bar network activity indicator. We'll turn it off when the connection
+    // finishes or experiences an error.
+    Application.sharedApplication.networkActivityIndicatorVisible = YES
+    
+    parseQueue = OperationQueue new
+    
+    NotificationCenter.defaultCenter addObserver: self,
+                                        selector: |addEarthquakes:|,
+                                            name: kAddEarthquakesNotif,
+                                          object: nil
+
+    NotificationCenter.defaultCenter addObserver: self,
+                                        selector: |earthquakesError:|,
+                                            name: kEarthquakesErrorNotif,
+                                          object: nil
+
+#pragma mark -
+#pragma mark NSURLConnection delegate methods
+
+  //------------------------------------------------------------------------------------------------
+  // The following are delegate methods for NSURLConnection. Similar to callback functions, this is
+  // how the connection object, which is working in the background, can asynchronously communicate back
+  // to its delegate on the thread from which it was started - in this case, the main thread.
+
+  //------------------------------------------------------------------------------------------------
+  connection: URLConnection, didReceiveResponse: URLResponse
+
+    // check for HTTP status code for proxy authentication failures
+    // anything in the 200 to 299 range is considered successful,
+    // also make sure the MIMEType is correct:
+    //
+    httpResponse := (HTTPURLResponse)response
+
+    if httpResponse.statusCode / 100 == 2 and response.MIMEType == 'application/atom+xml'
+
+      self.earthquakeData = MutableData data
+
+    else
+      const localizedString := LocalizedString('HTTP Error',
+                                               'Error message displayed when receving a connection error.')
+
+      Error error = Error errorWithDomain: 'HTTP',
+                                     code: (httpResponse statusCode),
+                                 userInfo: { LocalizedDescriptionKey : localizedString }
+      self handleError: error
+
+  //------------------------------------------------------------------------------------------------
+  connection: URLConnection, didReceiveData: Data
+    earthquakeData appendData: data
+
+  //------------------------------------------------------------------------------------------------
+  connection: URLConnection, didFailWithError: Error
+
+    Application.sharedApplication.networkActivityIndicatorVisible = NO
+
+    if error code == (int)kCFURLErrorNotConnectedToInternet
+
+      const localizedString := LocalizedString('No Connection Error',
+                                               'Error message displayed when not connected to the Internet.')
+
+      Error noConnectionError = Error errorWithDomain: CocoaErrorDomain,
+                                                 code: kCFURLErrorNotConnectedToInternet,
+                                             userInfo: { LocalizedDescriptionKey : localizedString }
+      self handleError: noConnectionError
+
+    else // handle the error generically
+      self handleError: error
+
+    self.earthquakeFeedConnection = nil
+
+  //------------------------------------------------------------------------------------------------
+  connectionDidFinishLoading: URLConnection
+
+    self.earthquakeFeedConnection = nil
+
+    Application.sharedApplication.networkActivityIndicatorVisible = NO
+    
+    // Spawn an NSOperation to parse the earthquake data so that the UI is not blocked while the
+    // application parses the XML data.
+    //
+    // IMPORTANT! - Don't access or affect UIKit objects on secondary threads.
+    //
+    parseOperation := ParseOperation alloc initWithData: self.earthquakeData
+    self.parseQueue addOperation: parseOperation
+    parseOperation release // once added to the NSOperationQueue it's retained, we don't need it anymore
+    
+    // earthquakeData will be retained by the NSOperation until it has finished executing,
+    // so we no longer need a reference to it in the main thread.
+    self.earthquakeData = nil
+
+
+  //------------------------------------------------------------------------------------------------
+  // Handle errors in the download by showing an alert to the user. This is a very
+  // simple way of handling the error, partly because this application does not have any offline
+  // functionality for the user. Most real applications should handle the error in a less obtrusive
+  // way and provide offline functionality to the user.
+  //
+  handleError: Error
+
+    errorMessage := error localizedDescription
+
+    title := LocalizedString('Error Title',
+                             'Title for alert displayed when download or parse error occurs.')
+
+    alertView := AlertView alloc initWithTitle: title,
+                                       message: errorMessage,
+                                      delegate: nil,
+                             cancelButtonTitle: 'OK',
+                             otherButtonTitles: nil
+    alertView show
+    alertView release
+
+  //------------------------------------------------------------------------------------------------
+  // Our NSNotification callback from the running NSOperation to add the earthquakes
+  //
+  addEarthquakes: Notification notif
+
+    assert(Thread isMainThread)
+
+    self addEarthquakesToList: notif.userInfo[kEarthquakeResultsKey]
+    
+
+  //------------------------------------------------------------------------------------------------
+  // Our NSNotification callback from the running NSOperation when a parsing error has occurred
+  //
+  earthquakesError: Notification notif
+
+    assert(Thread isMainThread)
+
+    self handleError: notif.userInfo[kEarthquakesMsgErrorKey]
+    
+    self handleError: notif.userInfo[kEarthquakesMsgErrorKey]
+
+  //------------------------------------------------------------------------------------------------
+  // The NSOperation "ParseOperation" calls addEarthquakes: via NSNotification, on the main thread
+  // which in turn calls this method, with batches of parsed objects.
+  // The batch size is set via the kSizeOfEarthquakeBatch constant.
+  //
+  addEarthquakesToList: Array earthquakes
+    
+    // insert the earthquakes into our rootViewController's data source (for KVO purposes)
+    self.rootViewController insertEarthquakes: earthquakes
+
+
+end
+

@@ -1,0 +1,30 @@
+//
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     SeismicXML/ObjC/Earthquake.m
+//
+// Please see it for Apple license details.
+//
+// Abstract: The model class that stores the information about an earthquake.
+//
+#import 'Earthquake.h'
+
+implementation Earthquake
+
+  synthesize magnitude,
+             location,
+             date,
+             USGSWebLink,
+             latitude,
+             longitude
+
+  //------------------------------------------------------------------------------------------------
+  dealloc
+    location release
+    date release
+    USGSWebLink release
+    super dealloc
+
+
+end
