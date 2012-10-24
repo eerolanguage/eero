@@ -1,0 +1,109 @@
+
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     ForwardInvocation/ObjC/main.m
+//
+// Please see it for Apple license details.
+//
+#import <Foundation/Foundation.h>
+#include <stdio.h>
+
+
+interface TargetProxy : Proxy
+  id realObject1
+  id realObject2
+
+  initWithTarget1: id, target2: id, return id
+
+  // '<<' append string operator
+  shiftLeft: String
+
+end
+
+
+int main(int argc, const char *argv[])
+
+  autoreleasepool
+    
+    // Create an empty mutable string, which will be one of the real objects for the proxy.
+    string := ''
+
+    // Create an empty mutable array, which will be the other real object for the proxy.
+    array := []
+
+    // Create a proxy to wrap the real objects.  This is rather
+    // artificial for the purposes of this example -- you'd rarely
+    // have a single proxy covering two objects.  But it is possible.
+    //
+    id proxy = TargetProxy alloc initWithTarget1: string, target2: array
+
+    // Note that we can't use appendFormat:, because vararg methods
+    // cannot be forwarded!
+
+    proxy << 'This '
+    proxy << 'is '
+
+    proxy addObject: string
+
+    proxy << 'a '
+    proxy << 'test!'
+
+    Log('count should be 1, it is: %d', (int)(proxy count))
+    
+    if (String)proxy[0] == 'This is a test!'
+      Log('Appending successful.')
+    else
+      Log('Appending failed, got: "%@"', proxy)
+
+    Log('Example finished without errors.')
+
+  return 0
+
+
+implementation TargetProxy
+
+  initWithTarget1: id, target2: id, return id = self
+    realObject1 = target1 retain
+    realObject2 = target2 retain
+
+  shiftLeft: String string
+    ((id)self) appendString: string
+
+  dealloc
+    realObject1 release
+    realObject2 release
+    super dealloc
+
+  // The compiler knows the types at the call site but unfortunately doesn't
+  // leave them around for us to use, so we must poke around and find the types
+  // so that the invocation can be initialized from the stack frame.
+
+  // Here, we ask the two real objects, realObject1 first, for their method
+  // signatures, since we'll be forwarding the message to one or the other
+  // of them in -forwardInvocation:.  If realObject1 returns a non-nil
+  // method signature, we use that, so in effect it has priority.
+  //
+  methodSignatureForSelector: SEL aSelector, return MethodSignature
+    sig := realObject1 methodSignatureForSelector: aSelector
+    if sig
+      return sig
+    sig = realObject2 methodSignatureForSelector: aSelector
+    return sig
+
+  // Invoke the invocation on whichever real object had a signature for it.
+  //
+  forwardInvocation: Invocation
+    id target = (realObject1 methodSignatureForSelector: (invocation selector)) ? realObject1 : realObject2
+    invocation invokeWithTarget: target
+
+  // Override some of NSProxy's implementations to forward them...
+  //
+  respondsToSelector: SEL aSelector, return BOOL = NO
+    if realObject1 respondsToSelector: aSelector
+      return YES
+    if realObject2 respondsToSelector: aSelector
+      return YES
+
+end
+
