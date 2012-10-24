@@ -1,0 +1,128 @@
+
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     GLFullScreen/ObjC/Texture.m
+//
+// Please see it for Apple license details.
+//
+// Abstract:  A help class that loads an OpenGL texture from an image path.
+//
+#import <OpenGL/glu.h>
+#import 'Texture.h'
+
+static const TEXTURE_WIDTH  := 1024
+static const TEXTURE_HEIGHT :=  512
+
+interface Texture (PrivateMethods)
+
+  getImageDataFromPath:(NSString*)path, return BOOL
+
+  loadTexture
+
+end
+
+implementation Texture
+
+  //------------------------------------------------------------------------------------------------
+  //
+  initWithPath: String, return id = self
+    if self = super init
+      if self getImageDataFromPath: path
+        self loadTexture
+
+  //------------------------------------------------------------------------------------------------
+  //
+  textureName, return GLuint = texId
+
+  //------------------------------------------------------------------------------------------------
+  //
+  getImageDataFromPath:(NSString*)path, return BOOL
+
+    using prefix CG
+    
+    data = (GLubyte*) calloc(TEXTURE_WIDTH * TEXTURE_HEIGHT * 4, sizeof(GLubyte))
+    
+    URL url = URL fileURLWithPath: path
+    src := ImageSourceCreateWithURL((CFURLRef)url, NULL)
+  
+    if src == NULL
+      Log('No image')
+      free(data)
+      return NO
+    
+    image := ImageSourceCreateImageAtIndex(src, 0, NULL)
+    CFRelease(src)
+    
+    width := ImageGetWidth(image)
+    height := ImageGetHeight(image)
+    
+    colorSpace := ColorSpaceCreateDeviceRGB()
+    context := BitmapContextCreate(data, width, height, 8, 4 * width,
+                                   colorSpace, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host)
+    ColorSpaceRelease(colorSpace)
+    
+    // Core Graphics referential is upside-down compared to OpenGL referential
+    // Flip the Core Graphics context here
+    // An alternative is to use flipped OpenGL texture coordinates when drawing textures
+    ContextTranslateCTM(context, 0.0, height)
+    ContextScaleCTM(context, 1.0, -1.0)
+    
+    // Set the blend mode to copy before drawing since the previous contents of memory aren't used.
+    // This avoids unnecessary blending.
+    ContextSetBlendMode(context, kCGBlendModeCopy)
+    
+    ContextDrawImage(context, RectMake(0, 0, width, height), image)
+    
+    ContextRelease(context);
+    ImageRelease(image);
+
+    return YES
+
+  //------------------------------------------------------------------------------------------------
+  //
+  loadTexture
+
+    glGenTextures(1, &texId)
+    glGenBuffers(1, &pboId)
+    
+    // Bind the texture
+    glBindTexture(GL_TEXTURE_2D, texId)
+    
+    // Bind the PBO
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboId)
+    
+    // Upload the texture data to the PBO
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, TEXTURE_WIDTH * TEXTURE_HEIGHT * 4 * sizeof(GLubyte),
+                 data, GL_STATIC_DRAW)
+    
+    // Setup texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+    
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0)
+    
+    // OpenGL likes the GL_BGRA + GL_UNSIGNED_INT_8_8_8_8_REV combination
+    // Use offset instead of pointer to indictate that we want to use data copied from a PBO        
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TEXTURE_WIDTH, TEXTURE_HEIGHT, 0, 
+                 GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, 0);
+    
+    // We can delete the application copy of the texture data now
+    free(data)
+    
+    glBindTexture(GL_TEXTURE_2D, 0)
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0)
+
+  //------------------------------------------------------------------------------------------------
+  //
+  dealloc
+
+    glDeleteTextures(1, &texId)
+    glDeleteBuffers(1, &pboId)
+    super dealloc
+
+end
+
+

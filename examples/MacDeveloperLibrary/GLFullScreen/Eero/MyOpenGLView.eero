@@ -1,0 +1,224 @@
+
+// Eero conversion of example source code provided by Apple.
+//
+// This file based on file:
+//     GLFullScreen/ObjC/MyOpenGLView.m
+//
+// Please see it for Apple license details.
+//
+// Abstract:  An NSView subclass that delegates to separate "scene"
+// and "controller" objects for OpenGL rendering and input event handling.
+//
+#import "MyOpenGLView.h"
+#import "MainController.h"
+#import "Scene.h"
+
+implementation MyOpenGLView
+
+  // Note: the original Apple example didn't use properties, so we'll just do a direct translation
+  // instead of using them, for comparison reasons.
+
+  //------------------------------------------------------------------------------------------------
+  //
+  openGLContext, return OpenGLContext = openGLContext
+
+  //------------------------------------------------------------------------------------------------
+  //
+  pixelFormat, return OpenGLPixelFormat = pixelFormat
+
+  //------------------------------------------------------------------------------------------------
+  //
+  setMainController: MainController aController
+    controller = aController
+
+  //------------------------------------------------------------------------------------------------
+  //
+  getFrameForTime: const CVTimeStamp* outputTime, return CVReturn
+
+    // There is no autorelease pool when this method is called because it will be called from a background thread
+    // It's important to create one or you will leak objects
+    autoreleasepool
+      // Update the animation
+      currentTime := CFAbsoluteTimeGetCurrent()
+      controller.scene advanceTimeBy: (currentTime - controller.renderTime)
+      controller setRenderTime: currentTime
+      
+      self drawView
+    
+    return kCVReturnSuccess
+
+
+  //------------------------------------------------------------------------------------------------
+  //
+  setupDisplayLink
+
+    extern CVReturn MyDisplayLinkCallback()
+
+    // Create a display link capable of being used with all active displays
+    CVDisplayLinkCreateWithActiveCGDisplays(&displayLink)
+    
+    // Set the renderer output callback function
+    CVDisplayLinkSetOutputCallback(displayLink,
+                                   (CVDisplayLinkOutputCallback)&MyDisplayLinkCallback,
+                                   self)
+    
+    // Set the display link for the current renderer
+    cglContext := self.openGLContext.CGLContextObj
+    CGLPixelFormatObj cglPixelFormat = self.pixelFormat.CGLPixelFormatObj
+    CVDisplayLinkSetCurrentCGDisplayFromOpenGLContext(displayLink, cglContext, cglPixelFormat)
+
+  //------------------------------------------------------------------------------------------------
+  //
+  initWithFrame: NSRect, shareContext: OpenGLContext, return id = self
+
+    OpenGLPixelFormatAttribute attribs[] =
+    {
+        kCGLPFAAccelerated,
+        kCGLPFANoRecovery,
+        kCGLPFADoubleBuffer,
+        kCGLPFAColorSize, 24,
+        kCGLPFADepthSize, 16,
+        0
+    }
+    
+    pixelFormat = OpenGLPixelFormat alloc initWithAttributes: attribs
+    
+    if not pixelFormat
+      Log('"No OpenGL pixel format')
+    
+    // NSOpenGLView does not handle context sharing, so we draw to a custom NSView instead
+    openGLContext = OpenGLContext alloc initWithFormat: pixelFormat, shareContext: context
+    
+    if self = super initWithFrame: frame
+      self.openGLContext makeCurrentContext
+      
+      // Synchronize buffer swaps with vertical refresh rate
+      GLint swapInt = 1
+      self.openGLContext setValues: &swapInt, forParameter: OpenGLCPSwapInterval
+      
+      self setupDisplayLink
+      
+      // Look for changes in view size
+      // Note, -reshape will not be called automatically on size changes because NSView does not
+      // export it to override
+      //
+      NotificationCenter.defaultCenter addObserver: self,
+                                          selector: |reshape|,
+                                              name: ViewGlobalFrameDidChangeNotification,
+                                            object: self
+
+  //------------------------------------------------------------------------------------------------
+  //
+  initWithFrame: NSRect, return id = self
+    self = self initWithFrame: frame, shareContext: nil
+
+  //------------------------------------------------------------------------------------------------
+  //
+  lockFocus
+    super lockFocus
+    if self.openGLContext.view != self
+      self.openGLContext.view = self
+
+  //------------------------------------------------------------------------------------------------
+  // This method will be called on the main thread when resizing, but we may be drawing on a
+  // secondary thread through the display link.
+  // Add a mutex around to avoid the threads accessing the context simultaneously
+  //
+  reshape
+    CGLLockContext(self.openGLContext.CGLContextObj)
+    
+    // Delegate to the scene object to update for a change in the view size
+    controller.scene setViewportRect: self.bounds
+    self.openGLContext update
+    
+    CGLUnlockContext(self.openGLContext.CGLContextObj)
+
+  //------------------------------------------------------------------------------------------------
+  //
+  drawRect: NSRect
+    // Ignore if the display link is still running
+    if not CVDisplayLinkIsRunning(displayLink)
+      self drawView
+
+  //------------------------------------------------------------------------------------------------
+  // This method will be called on both the main thread (through -drawRect:) and a secondary
+  // thread (through the display link rendering loop).
+  // Also, when resizing the view, -reshape is called on the main thread, but we may be
+  // drawing on a secondary thread.
+  // Add a mutex around to avoid the threads accessing the context simultaneously
+  //
+  drawView
+    CGLLockContext(self.openGLContext.CGLContextObj)
+    
+    // Make sure we draw to the right context
+    self.openGLContext makeCurrentContext
+    
+    // Delegate to the scene object for rendering
+    controller.scene render
+    self.openGLContext flushBuffer
+    
+    CGLUnlockContext(self.openGLContext.CGLContextObj)
+
+
+  //------------------------------------------------------------------------------------------------
+  // We want this view to be able to receive key events
+  //
+  acceptsFirstResponder, return BOOL = YES
+
+  //------------------------------------------------------------------------------------------------
+  // Delegate to the controller object for handling key events
+  //
+  keyDown: Event theEvent
+    controller keyDown: theEvent
+
+  //------------------------------------------------------------------------------------------------
+  // Delegate to the controller object for handling mouse events
+  //
+  mouseDown: Event theEvent
+    controller mouseDown: theEvent
+
+  //------------------------------------------------------------------------------------------------
+  //
+  startAnimation
+    if displayLink and not CVDisplayLinkIsRunning(displayLink)
+      CVDisplayLinkStart(displayLink)
+
+  //------------------------------------------------------------------------------------------------
+  //
+  stopAnimation
+    if displayLink and CVDisplayLinkIsRunning(displayLink)
+      CVDisplayLinkStop(displayLink)
+
+  //------------------------------------------------------------------------------------------------
+  //
+  dealloc
+    // Stop and release the display link
+    CVDisplayLinkStop(displayLink)
+    CVDisplayLinkRelease(displayLink)
+    
+    // Destroy the context
+    openGLContext release
+    pixelFormat release
+    
+    NotificationCenter.defaultCenter removeObserver: self,
+                                               name: ViewGlobalFrameDidChangeNotification,
+                                             object: self
+    super dealloc
+
+end
+
+
+//--------------------------------------------------------------------------------------------------
+// This is the renderer output callback function
+//
+static CVReturn MyDisplayLinkCallback( CVDisplayLinkRef   displayLink,
+                                       const CVTimeStamp* now,
+                                       const CVTimeStamp* outputTime,
+                                       CVOptionFlags      flagsIn,
+                                       CVOptionFlags*     flagsOut,
+                                       void*              displayLinkContext )
+
+  view := (MyOpenGLView)displayLinkContext
+  return view getFrameForTime: outputTime
+
+
