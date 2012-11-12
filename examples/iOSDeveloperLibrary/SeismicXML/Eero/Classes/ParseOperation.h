@@ -29,7 +29,7 @@ interface ParseOperation : Operation
     DateFormatter dateFormatter
     
   private // these variables are used during parsing
-    Earthquake* currentEarthquakeObject
+    Earthquake currentEarthquakeObject
     MutableArray currentParseBatch;
     MutableString currentParsedCharacterData
     
