@@ -1,0 +1,64 @@
+//
+// Example of using C++ APIs (including the STL) directly from Eero.
+//
+// To compile and run this example from the command line:
+//
+// $ <path_to_eero_clang>/clang -framework Foundation cplusplus.eero -o -lstdc++
+// $ ./a.out
+//
+// You should see something like:
+//
+// a
+// b
+// c
+// 2012-11-15 20:20:20.602 a.out[1747:707] trying...
+// 2012-11-15 20:20:20.605 a.out[1747:707] caught C++ exception: basic_string::substr
+// 10
+// 20
+//
+
+#pragma eero "C++"
+
+#include <Foundation/Foundation.h>
+
+#import <vector>
+#import <string>
+#import <iostream>
+
+using namespace std
+
+int main()
+
+  string stlString = "abc"
+
+  for char c : stlString
+    cout << c << endl
+
+  objcArray := [ 'x', 'y', 'z' ]
+
+  try
+    Log('trying...')
+//    id elem = objcArray[20] // uncomment this line to see objc exception thrown
+    stlString.substr(1000, 1001) // throws C++ exception
+
+  catch std::exception& e  // handle C++ (STL) exceptions
+    Log('caught C++ exception: %s', e.what())
+
+  catch Exception e  // handle objc exceptions
+    Log('Caught %@ => %@', e name, e reason)
+
+  catch ... // handle exceptions of any sort not caught previously
+    Log('caught "...!"')
+
+  // Using blocks directly as C++ lambdas
+
+  vector<int> intVect
+
+  intVect.push_back(10)
+  intVect.push_back(20)
+
+  std::for_each( intVect.begin(), intVect.end(), ^(int x | cout << x << endl) )
+
+  return 0
+
+
