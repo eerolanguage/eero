@@ -52,7 +52,7 @@ implementation MyOpenGLView
   //
   setupDisplayLink
 
-    extern CVReturn MyDisplayLinkCallback()
+    CVReturn MyDisplayLinkCallback()
 
     // Create a display link capable of being used with all active displays
     CVDisplayLinkCreateWithActiveCGDisplays(&displayLink)
@@ -211,12 +211,12 @@ end
 //--------------------------------------------------------------------------------------------------
 // This is the renderer output callback function
 //
-static CVReturn MyDisplayLinkCallback( CVDisplayLinkRef   displayLink,
-                                       const CVTimeStamp* now,
-                                       const CVTimeStamp* outputTime,
-                                       CVOptionFlags      flagsIn,
-                                       CVOptionFlags*     flagsOut,
-                                       void*              displayLinkContext )
+CVReturn MyDisplayLinkCallback( CVDisplayLinkRef   displayLink,
+                                const CVTimeStamp* now,
+                                const CVTimeStamp* outputTime,
+                                CVOptionFlags      flagsIn,
+                                CVOptionFlags*     flagsOut,
+                                void*              displayLinkContext )
 
   view := (MyOpenGLView)displayLinkContext
   return view getFrameForTime: outputTime

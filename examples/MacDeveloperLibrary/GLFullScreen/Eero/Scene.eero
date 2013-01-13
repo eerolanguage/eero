@@ -93,7 +93,7 @@ implementation Scene
   //
   render
 
-    extern double dtor( double degrees )
+    double dtor( double degrees )
 
     static GLfloat lightDirection[] = { -0.7071, 0.0, 0.7071, 0.0 }
     static GLfloat radius = 0.25
@@ -156,7 +156,7 @@ end
 
 //--------------------------------------------------------------------------------------------------
 //
-static double dtor( double degrees )
+double dtor( double degrees )
   return degrees * M_PI / 180.0
 
 
