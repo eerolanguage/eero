@@ -101,7 +101,7 @@
 		A129441116375EE900116E40 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0450;
+				LastUpgradeCheck = 0460;
 				ORGANIZATIONNAME = "Andy Arvanitis";
 			};
 			buildConfigurationList = A129441416375EE900116E40 /* Build configuration list for PBXProject "ForwardInvocation" */;
@@ -191,6 +191,7 @@
 			buildSettings = {
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ForwardInvocation/ForwardInvocation-Prefix.pch";
+				GCC_VERSION = org.eerolanguage.compilers.clang.1_0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -200,6 +201,7 @@
 			buildSettings = {
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "ForwardInvocation/ForwardInvocation-Prefix.pch";
+				GCC_VERSION = org.eerolanguage.compilers.clang.1_0;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

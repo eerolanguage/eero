@@ -176,7 +176,7 @@
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0450;
+				LastUpgradeCheck = 0460;
 			};
 			buildConfigurationList = B69BDF3108A2ECBD008AC9B5 /* Build configuration list for PBXProject "Temperature Converter" */;
 			compatibilityVersion = "Xcode 3.2";
