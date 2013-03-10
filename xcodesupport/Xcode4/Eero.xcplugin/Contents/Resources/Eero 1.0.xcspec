@@ -74,7 +74,7 @@
             {   Name = GCC_IPHONEOS_VERSION_MIN;
                 Type = String;
                 DefaultValue = "$(IPHONEOS_DEPLOYMENT_TARGET)";
-                CommandLinePrefixFlag = "-miphoneos-version-min=";
+                CommandLinePrefixFlag = "-mios-version-min=";
             },
         );
     },
