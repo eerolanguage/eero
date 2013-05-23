@@ -8,6 +8,7 @@
 //
 // Abstract: The NSOperation class used to perform the XML parsing of earthquake data.
 //
+#import "LegacyMacros.h"
 #import 'ParseOperation.h'
 #import 'Earthquake.h'
 
@@ -73,21 +74,21 @@ implementation ParseOperation
   //------------------------------------------------------------------------------------------------
   initWithData: Data, return id
 
-    if self = (super init)
-        earthquakeData = data copy
+    if (self = super.init)
+        earthquakeData = data.copy
 
-        dateFormatter = DateFormatter new
-        dateFormatter setTimeZone: (TimeZone timeZoneForSecondsFromGMT: 0)
-        dateFormatter setLocale: (Locale alloc initWithLocaleIdentifier: 'en_US_POSIX' autorelease)
-        dateFormatter setDateFormat: @"yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
+        dateFormatter = DateFormatter.new
+        dateFormatter.setTimeZone: (TimeZone.timeZoneForSecondsFromGMT: 0)
+        dateFormatter.setLocale: (Locale.alloc.initWithLocaleIdentifier: 'en_US_POSIX').autorelease
+        dateFormatter.setDateFormat: @"yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"
 
     return self
 
   //------------------------------------------------------------------------------------------------
   addEarthquakesToList: Array earthquakes
-    assert(Thread isMainThread)
-    
-    NotificationCenter.defaultCenter postNotificationName: kAddEarthquakesNotif,
+    Assert(NSThread.isMainThread)
+
+    NotificationCenter.defaultCenter.postNotificationName: kAddEarthquakesNotif,
                                                   object: self,
                                                 userInfo: { kEarthquakeResultsKey : earthquakes }
 
@@ -102,16 +103,16 @@ implementation ParseOperation
     // not desirable because it gives less control over the network, particularly in responding to
     // connection errors.
     //
-    parser := XMLParser alloc initWithData: self.earthquakeData
-    parser setDelegate: self
-    parser parse
+    parser := XMLParser.alloc.initWithData: self.earthquakeData
+    parser.setDelegate: self
+    parser.parse
     
     // depending on the total number of earthquakes parsed, the last batch might not have been a
     // "full" batch, and thus not been part of the regular batch transfer. So, we check the count of
     // the array and, if necessary, send it to the main thread.
     //
     if self.currentParseBatch.count > 0
-      self performSelectorOnMainThread: |addEarthquakesToList:|,
+      self.performSelectorOnMainThread: |addEarthquakesToList:|,
                             withObject: self.currentParseBatch,
                          waitUntilDone: NO
 
@@ -119,18 +120,17 @@ implementation ParseOperation
     self.currentEarthquakeObject = nil
     self.currentParsedCharacterData = nil
     
-    parser release
+    parser.release
 
 
   //------------------------------------------------------------------------------------------------
   dealloc
-    earthquakeData release
-    
-    currentEarthquakeObject release
-    currentParsedCharacterData release
-    currentParseBatch release
-    dateFormatter release
-    super dealloc
+    earthquakeData.release
+    currentEarthquakeObject.release
+    currentParsedCharacterData.release
+    currentParseBatch.release
+    dateFormatter.release
+    super.dealloc
 
 #pragma mark -
 #pragma mark NSXMLParser delegate methods
@@ -150,13 +150,13 @@ implementation ParseOperation
       // and other parser errors.
       //
       didAbortParsing = YES
-      parser abortParsing
+      parser.abortParsing
 
     if element == kEntryElementName
 
-      earthquake := Earthquake new
+      earthquake := Earthquake.new
       self.currentEarthquakeObject = earthquake
-      earthquake release
+      earthquake.release
 
     else if element == kLinkElementName
 
@@ -164,7 +164,7 @@ implementation ParseOperation
 
       if relAttribute == 'alternate'
         String USGSWebLink = attributes['href']
-        self.currentEarthquakeObject.USGSWebLink = URL URLWithString: USGSWebLink
+        self.currentEarthquakeObject.USGSWebLink = URL.URLWithString: USGSWebLink
 
     else if element == kTitleElementName or
             element == kUpdatedElementName or
@@ -177,7 +177,7 @@ implementation ParseOperation
 
       // The mutable string needs to be reset to empty.
       //
-      currentParsedCharacterData setString: ''
+      currentParsedCharacterData.setString: ''
 
   //------------------------------------------------------------------------------------------------
   parser: XMLParser, didEndElement: String,
@@ -186,12 +186,12 @@ implementation ParseOperation
 
     if element == kEntryElementName
 
-      self.currentParseBatch addObject: self.currentEarthquakeObject
+      self.currentParseBatch.addObject: self.currentEarthquakeObject
       parsedEarthquakesCounter++
 
       if self.currentParseBatch.count >= kMaximumNumberOfEarthquakesToParse
 
-        self performSelectorOnMainThread: |addEarthquakesToList:|,
+        self.performSelectorOnMainThread: |addEarthquakesToList:|,
                               withObject: self.currentParseBatch,
                            waitUntilDone: NO
 
@@ -203,21 +203,21 @@ implementation ParseOperation
       // <title>M 3.6, Virgin Islands region<title/>
       // Extract the magnitude and the location using a scanner:
       //
-      Scanner scanner = Scanner scannerWithString: self.currentParsedCharacterData
+      Scanner scanner = Scanner.scannerWithString: self.currentParsedCharacterData
 
       // Scan past the "M " before the magnitude.
-      if scanner scanString: 'M ', intoString: NULL
+      if scanner.scanString: 'M ', intoString: NULL
         magnitude := 0.0f
 
-        if scanner scanFloat: &magnitude
+        if scanner.scanFloat: &magnitude
           self.currentEarthquakeObject.magnitude = magnitude
 
           // Scan past the ", " before the title.
-          if scanner scanString: ', ', intoString: NULL
+          if scanner.scanString: ', ', intoString: NULL
             String location = nil
 
             // Scan the remainer of the string.
-            if scanner scanUpToCharactersFromSet: (CharacterSet illegalCharacterSet),
+            if scanner.scanUpToCharactersFromSet: CharacterSet.illegalCharacterSet,
                                       intoString: &location
 
               self.currentEarthquakeObject.location = location
@@ -226,7 +226,7 @@ implementation ParseOperation
 
       if self.currentEarthquakeObject != nil
         self.currentEarthquakeObject.date =
-            dateFormatter dateFromString: self.currentParsedCharacterData
+            dateFormatter.dateFromString: self.currentParsedCharacterData
       else
         // kUpdatedElementName can be found outside an entry element (i.e. in the XML header)
         // so don't process it here.
@@ -237,11 +237,11 @@ implementation ParseOperation
       // The georss:point element contains the latitude and longitude of the earthquake epicenter.
       // 18.6477 -66.7452
       //
-      Scanner scanner = Scanner scannerWithString: self.currentParsedCharacterData
+      Scanner scanner = Scanner.scannerWithString: self.currentParsedCharacterData
       double latitude, longitude
 
-      if scanner scanDouble: &latitude
-        if scanner scanDouble: &longitude
+      if scanner.scanDouble: &latitude
+        if scanner.scanDouble: &longitude
           self.currentEarthquakeObject.latitude = latitude
           self.currentEarthquakeObject.longitude = longitude
 
@@ -268,7 +268,7 @@ implementation ParseOperation
   // post the error as an NSNotification to our app delegate.
   // 
   handleEarthquakesError: Error
-    NotificationCenter.defaultCenter postNotificationName: kEarthquakesErrorNotif,
+    NotificationCenter.defaultCenter.postNotificationName: kEarthquakesErrorNotif,
                                                    object: self,
                                                  userInfo: { kEarthquakesMsgErrorKey : error }
 
@@ -281,7 +281,7 @@ implementation ParseOperation
 
     if error.code != (int)XMLParserDelegateAbortedParseError and not didAbortParsing
 
-      self performSelectorOnMainThread: |handleEarthquakesError:|,
+      self.performSelectorOnMainThread: |handleEarthquakesError:|,
                             withObject: error,
                          waitUntilDone: NO
 

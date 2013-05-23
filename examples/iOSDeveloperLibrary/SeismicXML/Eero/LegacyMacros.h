@@ -12,3 +12,7 @@
 static inline NSString* LocalizedString(NSString* key, NSString* comment) {
   return NSLocalizedString(key, comment);
 }
+
+static inline void Assert(int condition) {
+  return assert(condition);
+}

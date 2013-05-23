@@ -50,30 +50,30 @@ implementation SeismicXMLAppDelegate
 
   //------------------------------------------------------------------------------------------------
   dealloc
-    earthquakeFeedConnection cancel
-    earthquakeFeedConnection release
+    earthquakeFeedConnection.cancel
+    earthquakeFeedConnection.release
     
-    earthquakeData release
-    navigationController release
-    rootViewController release
-    window release
+    earthquakeData.release
+    navigationController.release
+    rootViewController.release
+    window.release
     
-    parseQueue release
+    parseQueue.release
     
-    NotificationCenter.defaultCenter removeObserver: self,
+    NotificationCenter.defaultCenter.removeObserver: self,
                                                name: kAddEarthquakesNotif,
                                              object: nil
 
-    NotificationCenter.defaultCenter removeObserver: self,
+    NotificationCenter.defaultCenter.removeObserver: self,
                                                name: kEarthquakesErrorNotif,
                                              object: nil
-    super dealloc
+    super.dealloc
 
   //------------------------------------------------------------------------------------------------
   applicationDidFinishLaunching: Application application
 
     // Add the navigation view controller to the window.
-    window addSubview: navigationController.view
+    window.addSubview: navigationController.view
     
     // Use NSURLConnection to asynchronously download the data. This means the main thread will not
     // be blocked - the application will remain responsive to the user. 
@@ -84,10 +84,10 @@ implementation SeismicXMLAppDelegate
     static feedURLString := 'http://earthquake.usgs.gov/eqcenter/catalogs/7day-M2.5.xml'
 
     URLRequest earthquakeURLRequest =
-        URLRequest requestWithURL: (URL URLWithString: feedURLString)
+        URLRequest.requestWithURL: (URL.URLWithString: feedURLString)
 
     self.earthquakeFeedConnection =
-        URLConnection connectionWithRequest: earthquakeURLRequest, delegate: self
+        URLConnection.connectionWithRequest: earthquakeURLRequest, delegate: self
     
     // Test the validity of the connection object. The most likely reason for the connection object
     // to be nil is a malformed URL, which is a programmatic error easily detected during development.
@@ -101,14 +101,14 @@ implementation SeismicXMLAppDelegate
     // finishes or experiences an error.
     Application.sharedApplication.networkActivityIndicatorVisible = YES
     
-    parseQueue = OperationQueue new
+    parseQueue = OperationQueue.new
     
-    NotificationCenter.defaultCenter addObserver: self,
+    NotificationCenter.defaultCenter.addObserver: self,
                                         selector: |addEarthquakes:|,
                                             name: kAddEarthquakesNotif,
                                           object: nil
 
-    NotificationCenter.defaultCenter addObserver: self,
+    NotificationCenter.defaultCenter.addObserver: self,
                                         selector: |earthquakesError:|,
                                             name: kEarthquakesErrorNotif,
                                           object: nil
@@ -132,38 +132,38 @@ implementation SeismicXMLAppDelegate
 
     if httpResponse.statusCode / 100 == 2 and response.MIMEType == 'application/atom+xml'
 
-      self.earthquakeData = MutableData data
+      self.earthquakeData = MutableData.data
 
     else
       const localizedString := LocalizedString('HTTP Error',
                                                'Error message displayed when receving a connection error.')
 
-      Error error = Error errorWithDomain: 'HTTP',
-                                     code: (httpResponse statusCode),
+      Error error = Error.errorWithDomain: 'HTTP',
+                                     code: httpResponse.statusCode,
                                  userInfo: { LocalizedDescriptionKey : localizedString }
-      self handleError: error
+      self.handleError: error
 
   //------------------------------------------------------------------------------------------------
   connection: URLConnection, didReceiveData: Data
-    earthquakeData appendData: data
+    earthquakeData.appendData: data
 
   //------------------------------------------------------------------------------------------------
   connection: URLConnection, didFailWithError: Error
 
     Application.sharedApplication.networkActivityIndicatorVisible = NO
 
-    if error code == (int)kCFURLErrorNotConnectedToInternet
+    if error.code == (int)kCFURLErrorNotConnectedToInternet
 
       const localizedString := LocalizedString('No Connection Error',
                                                'Error message displayed when not connected to the Internet.')
 
-      Error noConnectionError = Error errorWithDomain: CocoaErrorDomain,
+      Error noConnectionError = Error.errorWithDomain: CocoaErrorDomain,
                                                  code: kCFURLErrorNotConnectedToInternet,
                                              userInfo: { LocalizedDescriptionKey : localizedString }
-      self handleError: noConnectionError
+      self.handleError: noConnectionError
 
     else // handle the error generically
-      self handleError: error
+      self.handleError: error
 
     self.earthquakeFeedConnection = nil
 
@@ -179,9 +179,9 @@ implementation SeismicXMLAppDelegate
     //
     // IMPORTANT! - Don't access or affect UIKit objects on secondary threads.
     //
-    parseOperation := ParseOperation alloc initWithData: self.earthquakeData
-    self.parseQueue addOperation: parseOperation
-    parseOperation release // once added to the NSOperationQueue it's retained, we don't need it anymore
+    parseOperation := ParseOperation.alloc.initWithData: self.earthquakeData
+    self.parseQueue.addOperation: parseOperation
+    parseOperation.release // once added to the NSOperationQueue it's retained, we don't need it anymore
     
     // earthquakeData will be retained by the NSOperation until it has finished executing,
     // so we no longer need a reference to it in the main thread.
@@ -196,27 +196,27 @@ implementation SeismicXMLAppDelegate
   //
   handleError: Error
 
-    errorMessage := error localizedDescription
+    errorMessage := error.localizedDescription
 
     title := LocalizedString('Error Title',
                              'Title for alert displayed when download or parse error occurs.')
 
-    alertView := AlertView alloc initWithTitle: title,
+    alertView := AlertView.alloc.initWithTitle: title,
                                        message: errorMessage,
                                       delegate: nil,
                              cancelButtonTitle: 'OK',
                              otherButtonTitles: nil
-    alertView show
-    alertView release
+    alertView.show
+    alertView.release
 
   //------------------------------------------------------------------------------------------------
   // Our NSNotification callback from the running NSOperation to add the earthquakes
   //
   addEarthquakes: Notification notif
 
-    assert(Thread isMainThread)
+    assert(Thread.isMainThread)
 
-    self addEarthquakesToList: notif.userInfo[kEarthquakeResultsKey]
+    self.addEarthquakesToList: notif.userInfo[kEarthquakeResultsKey]
     
 
   //------------------------------------------------------------------------------------------------
@@ -224,11 +224,11 @@ implementation SeismicXMLAppDelegate
   //
   earthquakesError: Notification notif
 
-    assert(Thread isMainThread)
+    assert(Thread.isMainThread)
 
-    self handleError: notif.userInfo[kEarthquakesMsgErrorKey]
+    self.handleError: notif.userInfo[kEarthquakesMsgErrorKey]
     
-    self handleError: notif.userInfo[kEarthquakesMsgErrorKey]
+    self.handleError: notif.userInfo[kEarthquakesMsgErrorKey]
 
   //------------------------------------------------------------------------------------------------
   // The NSOperation "ParseOperation" calls addEarthquakes: via NSNotification, on the main thread
@@ -238,7 +238,7 @@ implementation SeismicXMLAppDelegate
   addEarthquakesToList: Array earthquakes
     
     // insert the earthquakes into our rootViewController's data source (for KVO purposes)
-    self.rootViewController insertEarthquakes: earthquakes
+    self.rootViewController.insertEarthquakes: earthquakes
 
 
 end

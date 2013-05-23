@@ -22,14 +22,14 @@ implementation RootViewController
 
   //------------------------------------------------------------------------------------------------
   dealloc
-    earthquakeList release
-    dateFormatter release
-    super dealloc
+    earthquakeList.release
+    dateFormatter.release
+    super.dealloc
 
 
   //------------------------------------------------------------------------------------------------
   viewDidLoad
-    super viewDidLoad
+    super.viewDidLoad
     
     self.earthquakeList = []
     
@@ -40,7 +40,7 @@ implementation RootViewController
     self.tableView.rowHeight = 48.0
     
     // KVO: listen for changes to our earthquake data source for table view updates
-    self addObserver: self,
+    self.addObserver: self,
           forKeyPath: 'earthquakeList',
              options: (KeyValueObservingOptions)0,
              context: NULL
@@ -48,9 +48,9 @@ implementation RootViewController
 
   //------------------------------------------------------------------------------------------------
   viewDidUnload
-    super viewDidUnload
+    super.viewDidUnload
     self.earthquakeList = nil
-    self removeObserver: self, forKeyPath: 'earthquakeList'
+    self.removeObserver: self, forKeyPath: 'earthquakeList'
 
 
   //------------------------------------------------------------------------------------------------
@@ -58,10 +58,10 @@ implementation RootViewController
   //
   dateFormatter, return DateFormatter
     if dateFormatter == nil
-      dateFormatter = DateFormatter new
-      dateFormatter setTimeZone: (TimeZone timeZoneForSecondsFromGMT: 0)
-      dateFormatter setDateStyle: DateFormatterMediumStyle
-      dateFormatter setTimeStyle: DateFormatterMediumStyle
+      dateFormatter = DateFormatter.new
+      dateFormatter.setTimeZone: (TimeZone.timeZoneForSecondsFromGMT: 0)
+      dateFormatter.setDateStyle: DateFormatterMediumStyle
+      dateFormatter.setTimeStyle: DateFormatterMediumStyle
 
     return dateFormatter
 
@@ -72,16 +72,16 @@ implementation RootViewController
   imageForMagnitude: CGFloat, return Image
 
     if magnitude >= 5.0
-      return Image imageNamed: '5.0.png'
+      return Image.imageNamed: '5.0.png'
 
     if magnitude >= 4.0
-      return Image imageNamed: '4.0.png'
+      return Image.imageNamed: '4.0.png'
 
     if magnitude >= 3.0
-      return Image imageNamed: '3.0.png'
+      return Image.imageNamed: '3.0.png'
 
     if magnitude >= 2.0
-      return Image imageNamed: '2.0.png'
+      return Image.imageNamed: '2.0.png'
 
     return nil
 
@@ -95,9 +95,9 @@ implementation RootViewController
     // this will allow us as an observer to notified (see observeValueForKeyPath)
     // so we can update our UITableView
     //
-    self willChangeValueForKey: 'earthquakeList'
-    self.earthquakeList addObjectsFromArray: earthquakes
-    self didChangeValueForKey: 'earthquakeList'
+    self.willChangeValueForKey: 'earthquakeList'
+    self.earthquakeList.addObjectsFromArray: earthquakes
+    self.didChangeValueForKey: 'earthquakeList'
 
 
   //------------------------------------------------------------------------------------------------
@@ -108,7 +108,7 @@ implementation RootViewController
                   change: Dictionary,
                  context: void *
 
-    self.tableView reloadData
+    self.tableView.reloadData
 
 #pragma mark -
 #pragma mark UITableViewDelegate
@@ -118,7 +118,7 @@ implementation RootViewController
   // The number of rows is equal to the number of earthquakes in the array.
   //
   tableView: TableView, numberOfRowsInSection: Integer, return Integer
-    return earthquakeList count
+    return earthquakeList.count
 
 
   //------------------------------------------------------------------------------------------------
@@ -146,54 +146,57 @@ implementation RootViewController
     ImageView magnitudeImage = nil
     
     static const kEarthquakeCellID := 'EarthquakeCellID'
-    TableViewCell cell = view dequeueReusableCellWithIdentifier: kEarthquakeCellID
+    TableViewCell cell = view.dequeueReusableCellWithIdentifier: kEarthquakeCellID
 
     if cell == nil
       // No reusable cell was available, so we create a new cell and configure its subviews.
-      cell = TableViewCell alloc initWithStyle: UITableViewCellStyleDefault,
-                               reuseIdentifier: kEarthquakeCellID  autorelease
+      cell = TableViewCell.alloc.initWithStyle: UITableViewCellStyleDefault,
+                               reuseIdentifier: kEarthquakeCellID
+      cell.autorelease
 
-      locationLabel = Label alloc initWithFrame: RectMake(10, 3, 190, 20) autorelease
+      locationLabel = (Label.alloc.initWithFrame: RectMake(10, 3, 190, 20)).autorelease
       locationLabel.tag = kLocationLabelTag
-      locationLabel.font = Font boldSystemFontOfSize: 14
-      cell.contentView addSubview: locationLabel
+      locationLabel.font = Font.boldSystemFontOfSize: 14
+      cell.contentView.addSubview: locationLabel
 
-      dateLabel = Label alloc initWithFrame: RectMake(10, 28, 170, 14) autorelease
+      dateLabel = (Label.alloc.initWithFrame: RectMake(10, 28, 170, 14)).autorelease
       dateLabel.tag = kDateLabelTag
-      dateLabel.font = Font systemFontOfSize: 10
-      cell.contentView addSubview: dateLabel
+      dateLabel.font = Font.systemFontOfSize: 10
+      cell.contentView.addSubview: dateLabel
 
-      magnitudeLabel = Label alloc initWithFrame: RectMake(277, 9, 170, 29) autorelease
+      magnitudeLabel = Label.alloc.initWithFrame: RectMake(277, 9, 170, 29)
+      magnitudeLabel.autorelease
       magnitudeLabel.tag = kMagnitudeLabelTag
-      magnitudeLabel.font = Font boldSystemFontOfSize: 24
+      magnitudeLabel.font = Font.boldSystemFontOfSize: 24
       magnitudeLabel.autoresizingMask = ViewAutoresizingFlexibleLeftMargin
-      cell.contentView addSubview: magnitudeLabel
+      cell.contentView.addSubview: magnitudeLabel
 
-      magnitudeImage = ImageView alloc initWithImage: (Image imageNamed: '5.0.png') autorelease
+      magnitudeImage = ImageView.alloc.initWithImage: (Image.imageNamed: '5.0.png')
+      magnitudeImage.autorelease
       imageFrame := magnitudeImage.frame
       imageFrame.origin = PointMake(180, 2)
       magnitudeImage.frame = imageFrame
       magnitudeImage.tag = kMagnitudeImageTag
       magnitudeImage.autoresizingMask = ViewAutoresizingFlexibleLeftMargin
-      cell.contentView addSubview: magnitudeImage
+      cell.contentView.addSubview: magnitudeImage
 
     else
       // A reusable cell was available, so we just need to get a reference to the subviews
       // using their tags.
       //
-      locationLabel = (Label)(cell.contentView viewWithTag: kLocationLabelTag)
-      dateLabel = (Label)(cell.contentView viewWithTag: kDateLabelTag)
-      magnitudeLabel = (Label)(cell.contentView viewWithTag: kMagnitudeLabelTag)
-      magnitudeImage = (ImageView)(cell.contentView viewWithTag: kMagnitudeImageTag)
+      locationLabel = (Label)(cell.contentView.viewWithTag: kLocationLabelTag)
+      dateLabel = (Label)(cell.contentView.viewWithTag: kDateLabelTag)
+      magnitudeLabel = (Label)(cell.contentView.viewWithTag: kMagnitudeLabelTag)
+      magnitudeImage = (ImageView)(cell.contentView.viewWithTag: kMagnitudeImageTag)
 
     // Get the specific earthquake for this row.
     Earthquake earthquake = earthquakeList[path.row]
     
     // Set the relevant data for each subview in the cell.
     locationLabel.text = earthquake.location
-    dateLabel.text = self.dateFormatter stringFromDate: earthquake.date
-    magnitudeLabel.text = String stringWithFormat: '%.1f', earthquake.magnitude
-    magnitudeImage.image = self imageForMagnitude: earthquake.magnitude
+    dateLabel.text = self.dateFormatter.stringFromDate: earthquake.date
+    magnitudeLabel.text = String.stringWithFormat: '%.1f', earthquake.magnitude
+    magnitudeImage.image = self.imageForMagnitude: earthquake.magnitude
 
     return cell
 
@@ -204,7 +207,7 @@ implementation RootViewController
   //
   tableView: TableView, didSelectRowAtIndexPath: IndexPath
 
-    sheet := ActionSheet alloc initWithTitle: LocalizedString('External App Sheet Title',
+    sheet := ActionSheet.alloc.initWithTitle: LocalizedString('External App Sheet Title',
                                                               'Title for sheet displayed with options for displaying Earthquake data in other applications'),
                                     delegate: self,
                            cancelButtonTitle: LocalizedString('Cancel', 'Cancel'),
@@ -212,8 +215,8 @@ implementation RootViewController
                            otherButtonTitles: LocalizedString('Show USGS Site in Safari', 'Show USGS Site in Safari'),
                                               LocalizedString('Show Location in Maps', 'Show Location in Maps'),
                                               nil
-    sheet showInView: self.view
-    sheet release
+    sheet.showInView: self.view
+    sheet.release
 
 
   //------------------------------------------------------------------------------------------------
@@ -221,22 +224,22 @@ implementation RootViewController
   //
   actionSheet: ActionSheet, willDismissWithButtonIndex: Integer
 
-    selectedIndexPath := self.tableView indexPathForSelectedRow
+    selectedIndexPath := self.tableView.indexPathForSelectedRow
     Earthquake earthquake = earthquakeList[selectedIndexPath.row]
 
     switch index
       case 0:
-        webLink := earthquake USGSWebLink
-        Application.sharedApplication openURL: webLink
+        webLink := earthquake.USGSWebLink
+        Application.sharedApplication.openURL: webLink
       case 1:
-        String mapsQuery = String stringWithFormat:'http://maps.google.com/maps?z=6&t=h&ll=%f,%f',
+        String mapsQuery = String.stringWithFormat:'http://maps.google.com/maps?z=6&t=h&ll=%f,%f',
                                                     earthquake.latitude,
                                                     earthquake.longitude
-        Application.sharedApplication openURL: (URL URLWithString: mapsQuery)
+        Application.sharedApplication.openURL: (URL.URLWithString: mapsQuery)
       default:
         ;
 
-    self.tableView deselectRowAtIndexPath: selectedIndexPath, animated: YES
+    self.tableView.deselectRowAtIndexPath: selectedIndexPath, animated: YES
 
 
 end
