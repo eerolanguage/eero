@@ -36,7 +36,7 @@ int main(int argc, const char *argv[])
     // artificial for the purposes of this example -- you'd rarely
     // have a single proxy covering two objects.  But it is possible.
     //
-    id proxy = TargetProxy alloc initWithTarget1: string, target2: array
+    id proxy = TargetProxy.alloc.initWithTarget1: string, target2: array
 
     // Note that we can't use appendFormat:, because vararg methods
     // cannot be forwarded!
@@ -44,12 +44,12 @@ int main(int argc, const char *argv[])
     proxy << 'This '
     proxy << 'is '
 
-    proxy addObject: string
+    proxy.addObject: string
 
     proxy << 'a '
     proxy << 'test!'
 
-    Log('count should be 1, it is: %d', (int)(proxy count))
+    Log('count should be 1, it is: %d', (int)proxy.count)
     
     if (String)proxy[0] == 'This is a test!'
       Log('Appending successful.')
@@ -64,16 +64,16 @@ int main(int argc, const char *argv[])
 implementation TargetProxy
 
   initWithTarget1: id, target2: id, return id = self
-    realObject1 = target1 retain
-    realObject2 = target2 retain
+    realObject1 = target1.retain
+    realObject2 = target2.retain
 
   shiftLeft: String string
-    ((id)self) appendString: string
+    ((id)self).appendString: string
 
   dealloc
-    realObject1 release
-    realObject2 release
-    super dealloc
+    realObject1.release
+    realObject2.release
+    super.dealloc
 
   // The compiler knows the types at the call site but unfortunately doesn't
   // leave them around for us to use, so we must poke around and find the types
@@ -85,24 +85,24 @@ implementation TargetProxy
   // method signature, we use that, so in effect it has priority.
   //
   methodSignatureForSelector: SEL aSelector, return MethodSignature
-    sig := realObject1 methodSignatureForSelector: aSelector
+    sig := realObject1.methodSignatureForSelector: aSelector
     if sig
       return sig
-    sig = realObject2 methodSignatureForSelector: aSelector
+    sig = realObject2.methodSignatureForSelector: aSelector
     return sig
 
   // Invoke the invocation on whichever real object had a signature for it.
   //
   forwardInvocation: Invocation
-    id target = (realObject1 methodSignatureForSelector: (invocation selector)) ? realObject1 : realObject2
-    invocation invokeWithTarget: target
+    id target = (realObject1.methodSignatureForSelector: invocation.selector) ? realObject1 : realObject2
+    invocation.invokeWithTarget: target
 
   // Override some of NSProxy's implementations to forward them...
   //
   respondsToSelector: SEL aSelector, return BOOL = NO
-    if realObject1 respondsToSelector: aSelector
+    if realObject1.respondsToSelector: aSelector
       return YES
-    if realObject2 respondsToSelector: aSelector
+    if realObject2.respondsToSelector: aSelector
       return YES
 
 end

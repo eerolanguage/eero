@@ -30,7 +30,7 @@ implementation MyFastEnumerationSample
   // for the enumeration to return later.
   //
   - initWithCapacity: UInteger, return id = self
-    self = super init
+    self = super.init
     if self != nil
       for i := 0; i < capacity; ++i
         list.push_back(random())
@@ -72,7 +72,7 @@ implementation MyFastEnumerationSample
       while state->state < list.size() and count < len
         // For this sample, we generate the contents on the fly.
         // A real implementation would likely just be copying objects from internal storage.
-        stackbuf[count] = String stringWithFormat: 'Item %li = %i', state->state, list[state->state]
+        stackbuf[count] = String.stringWithFormat: 'Item %li = %i', state->state, list[state->state]
         state->state++
         count++
     else
@@ -89,7 +89,7 @@ int main (int argc, const char * argv[])
 
     // And to demonstrate, we create an instance of our enumeration sample class and enumerate over its contents.
     srandomdev()
-    example := MyFastEnumerationSample alloc initWithCapacity: 50
+    example := MyFastEnumerationSample.alloc.initWithCapacity: 50
     for id item in example
       Log('%@', item)
 
