@@ -27,13 +27,13 @@ implementation ApplicationDelegate
     // These names are used in the "Transformer" field of the bindings
     // inspector within IB.    
 
-    ValueTransformer setValueTransformer: (CentigradeValueTransformer new autorelease),
+    ValueTransformer.setValueTransformer: CentigradeValueTransformer.new.autorelease,
                                  forName: 'centrigradeFromKelvin'
 
-    ValueTransformer setValueTransformer: (FahrenheitValueTransformer new autorelease),
+    ValueTransformer.setValueTransformer: FahrenheitValueTransformer.new.autorelease,
                                  forName: 'fahrenheitFromKelvin'
 
-    ValueTransformer setValueTransformer: (RankineValueTransformer new autorelease),
+    ValueTransformer.setValueTransformer: RankineValueTransformer.new.autorelease,
                                  forName: 'rankineFromKelvin'
 
 
@@ -57,14 +57,14 @@ implementation ApplicationDelegate
     // value.
 
     centrigradeFromKelvinTransformer :=
-        ValueTransformer valueTransformerForName:'centrigradeFromKelvin'
+        ValueTransformer.valueTransformerForName:'centrigradeFromKelvin'
 
     Number kelvinWaterBoilingPoint =
-        centrigradeFromKelvinTransformer reverseTransformedValue: (Number)100.0
+        centrigradeFromKelvinTransformer.reverseTransformedValue: (Number)100.0
 
     registrationDefaults := { 'LastTemperature' : kelvinWaterBoilingPoint }
 
-    UserDefaults.standardUserDefaults registerDefaults: registrationDefaults
+    UserDefaults.standardUserDefaults.registerDefaults: registrationDefaults
 
 
   //--------------------------------------------------------------------------------------
@@ -81,10 +81,10 @@ implementation ApplicationDelegate
 
     bindingOptions := { 'NSValueTransformerName' : 'rankineFromKelvin' }
 
-    rankineTemperatureField bind: 'value',
-                         toObject: sharedUserDefaultsController,
-                      withKeyPath: 'values.LastTemperature',
-                          options: bindingOptions
+    rankineTemperatureField.bind: 'value',
+                        toObject: sharedUserDefaultsController,
+                     withKeyPath: 'values.LastTemperature',
+                         options: bindingOptions
 
 end
 

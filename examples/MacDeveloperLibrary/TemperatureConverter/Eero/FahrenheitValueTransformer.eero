@@ -14,7 +14,7 @@
 implementation FahrenheitValueTransformer
 
   //--------------------------------------------------------------------------------------
-  + transformedValueClass, return Class = Number class
+  + transformedValueClass, return Class = Number.class
 
   //--------------------------------------------------------------------------------------
   + allowsReverseTransformation, return BOOL = YES
@@ -23,11 +23,11 @@ implementation FahrenheitValueTransformer
   transformedValue: id, return id = nil
 
     centigradeFromKelvinTransformer :=
-        ValueTransformer valueTransformerForName: 'centrigradeFromKelvin'
+        ValueTransformer.valueTransformerForName: 'centrigradeFromKelvin'
     
-    value = centigradeFromKelvinTransformer transformedValue: value // convert from kelvin to centigrade
+    value = centigradeFromKelvinTransformer.transformedValue: value // convert from kelvin to centigrade
 
-    if value respondsToSelector: |doubleValue|
+    if value.respondsToSelector: |doubleValue|
 
       centigradeInterimValue := (double)value  // handles String and Number
       fahrenheitOutputValue := (1.8 * centigradeInterimValue) + 32
@@ -35,27 +35,27 @@ implementation FahrenheitValueTransformer
       return (Number)fahrenheitOutputValue
 
     else if value != nil
-      Exception raise: InternalInconsistencyException,
+      Exception.raise: InternalInconsistencyException,
                format: 'Value does not respond to -doubleValue. ' +
-                       'No idea what to do. (Value is an instance of %@).', (value class)
+                       'No idea what to do. (Value is an instance of %@).', value.class
 
   //--------------------------------------------------------------------------------------
   reverseTransformedValue: id, return id = nil
 
     centigradeFromKelvinTransformer :=
-        ValueTransformer valueTransformerForName: 'centrigradeFromKelvin'
+        ValueTransformer.valueTransformerForName: 'centrigradeFromKelvin'
 
-    if value respondsToSelector: |doubleValue|
+    if value.respondsToSelector: |doubleValue|
 
       fahrenheitInputValue := (double)value  // handles String and Number
       centigradeInterimValue := ((fahrenheitInputValue - 32.0) / 1.8)
 
       // convert from centigrade to kelvin and return....
-      return centigradeFromKelvinTransformer reverseTransformedValue: (Number)centigradeInterimValue
+      return centigradeFromKelvinTransformer.reverseTransformedValue: (Number)centigradeInterimValue
 
     else if value != nil
-      Exception raise: InternalInconsistencyException,
+      Exception.raise: InternalInconsistencyException,
                format: 'Value does not respond to -doubleValue.  ' +
-                       'No idea what to do. (Value is an instance of %@).', (value class)
+                       'No idea what to do. (Value is an instance of %@).', value.class
 
 end

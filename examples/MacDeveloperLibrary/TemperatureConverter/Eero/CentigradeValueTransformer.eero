@@ -13,7 +13,7 @@
 implementation CentigradeValueTransformer
 
   //--------------------------------------------------------------------------------------
-  + transformedValueClass, return Class = Number class
+  + transformedValueClass, return Class = Number.class
 
   //--------------------------------------------------------------------------------------
   + allowsReverseTransformation, return BOOL = YES
@@ -21,7 +21,7 @@ implementation CentigradeValueTransformer
   //--------------------------------------------------------------------------------------
   transformedValue: id, return id = nil
 
-    if value respondsToSelector: |doubleValue|
+    if value.respondsToSelector: |doubleValue|
 
       kelvinInputValue := (double)value  // handles String and Number
       centigradeOutputValue := kelvinInputValue - 273.15
@@ -29,14 +29,14 @@ implementation CentigradeValueTransformer
       return (Number)centigradeOutputValue
 
     else if value != nil
-      Exception raise: InternalInconsistencyException,
+      Exception.raise: InternalInconsistencyException,
                format: 'Value does not respond to -doubleValue. ' +
-                       'No idea what to do. (Value is an instance of %@).', (value class)
+                       'No idea what to do. (Value is an instance of %@).', value.class
 
   //--------------------------------------------------------------------------------------
   reverseTransformedValue: id, return id = nil
 
-    if value respondsToSelector: |doubleValue|
+    if value.respondsToSelector: |doubleValue|
 
       centigradeInputValue := (double)value  // handles String and Number
       kelvinOutputValue := centigradeInputValue + 273.15
@@ -44,9 +44,9 @@ implementation CentigradeValueTransformer
       return (Number)kelvinOutputValue
 
     else if value != nil
-      Exception raise: InternalInconsistencyException,
+      Exception.raise: InternalInconsistencyException,
                format: 'Value does not respond to -doubleValue.  ' +
-                       'No idea what to do. (Value is an instance of %@).', (value class)
+                       'No idea what to do. (Value is an instance of %@).', value.class
 
 end
 
