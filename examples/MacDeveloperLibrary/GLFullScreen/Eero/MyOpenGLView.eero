@@ -40,10 +40,10 @@ implementation MyOpenGLView
     autoreleasepool
       // Update the animation
       currentTime := CFAbsoluteTimeGetCurrent()
-      controller.scene advanceTimeBy: (currentTime - controller.renderTime)
-      controller setRenderTime: currentTime
+      controller.scene.advanceTimeBy: (currentTime - controller.renderTime)
+      controller.setRenderTime: currentTime
       
-      self drawView
+      self.drawView
     
     return kCVReturnSuccess
 
@@ -81,28 +81,28 @@ implementation MyOpenGLView
         0
     }
     
-    pixelFormat = OpenGLPixelFormat alloc initWithAttributes: attribs
+    pixelFormat = OpenGLPixelFormat.alloc.initWithAttributes: attribs
     
     if not pixelFormat
       Log('"No OpenGL pixel format')
     
     // NSOpenGLView does not handle context sharing, so we draw to a custom NSView instead
-    openGLContext = OpenGLContext alloc initWithFormat: pixelFormat, shareContext: context
+    openGLContext = OpenGLContext.alloc.initWithFormat: pixelFormat, shareContext: context
     
-    if self = super initWithFrame: frame
-      self.openGLContext makeCurrentContext
+    if self = super.initWithFrame: frame
+      self.openGLContext.makeCurrentContext
       
       // Synchronize buffer swaps with vertical refresh rate
       GLint swapInt = 1
-      self.openGLContext setValues: &swapInt, forParameter: OpenGLCPSwapInterval
+      self.openGLContext.setValues: &swapInt, forParameter: OpenGLCPSwapInterval
       
-      self setupDisplayLink
+      self.setupDisplayLink
       
       // Look for changes in view size
       // Note, -reshape will not be called automatically on size changes because NSView does not
       // export it to override
       //
-      NotificationCenter.defaultCenter addObserver: self,
+      NotificationCenter.defaultCenter.addObserver: self,
                                           selector: |reshape|,
                                               name: ViewGlobalFrameDidChangeNotification,
                                             object: self
@@ -110,12 +110,12 @@ implementation MyOpenGLView
   //------------------------------------------------------------------------------------------------
   //
   initWithFrame: NSRect, return id = self
-    self = self initWithFrame: frame, shareContext: nil
+    self = self.initWithFrame: frame, shareContext: nil
 
   //------------------------------------------------------------------------------------------------
   //
   lockFocus
-    super lockFocus
+    super.lockFocus
     if self.openGLContext.view != self
       self.openGLContext.view = self
 
@@ -128,8 +128,8 @@ implementation MyOpenGLView
     CGLLockContext(self.openGLContext.CGLContextObj)
     
     // Delegate to the scene object to update for a change in the view size
-    controller.scene setViewportRect: self.bounds
-    self.openGLContext update
+    controller.scene.setViewportRect: self.bounds
+    self.openGLContext.update
     
     CGLUnlockContext(self.openGLContext.CGLContextObj)
 
@@ -138,7 +138,7 @@ implementation MyOpenGLView
   drawRect: NSRect
     // Ignore if the display link is still running
     if not CVDisplayLinkIsRunning(displayLink)
-      self drawView
+      self.drawView
 
   //------------------------------------------------------------------------------------------------
   // This method will be called on both the main thread (through -drawRect:) and a secondary
@@ -151,11 +151,11 @@ implementation MyOpenGLView
     CGLLockContext(self.openGLContext.CGLContextObj)
     
     // Make sure we draw to the right context
-    self.openGLContext makeCurrentContext
+    self.openGLContext.makeCurrentContext
     
     // Delegate to the scene object for rendering
-    controller.scene render
-    self.openGLContext flushBuffer
+    controller.scene.render
+    self.openGLContext.flushBuffer
     
     CGLUnlockContext(self.openGLContext.CGLContextObj)
 
@@ -169,13 +169,13 @@ implementation MyOpenGLView
   // Delegate to the controller object for handling key events
   //
   keyDown: Event theEvent
-    controller keyDown: theEvent
+    controller.keyDown: theEvent
 
   //------------------------------------------------------------------------------------------------
   // Delegate to the controller object for handling mouse events
   //
   mouseDown: Event theEvent
-    controller mouseDown: theEvent
+    controller.mouseDown: theEvent
 
   //------------------------------------------------------------------------------------------------
   //
@@ -197,13 +197,13 @@ implementation MyOpenGLView
     CVDisplayLinkRelease(displayLink)
     
     // Destroy the context
-    openGLContext release
-    pixelFormat release
+    openGLContext.release
+    pixelFormat.release
     
-    NotificationCenter.defaultCenter removeObserver: self,
+    NotificationCenter.defaultCenter.removeObserver: self,
                                                name: ViewGlobalFrameDidChangeNotification,
                                              object: self
-    super dealloc
+    super.dealloc
 
 end
 
@@ -219,6 +219,6 @@ CVReturn MyDisplayLinkCallback( CVDisplayLinkRef   displayLink,
                                 void*              displayLinkContext )
 
   view := (MyOpenGLView)displayLinkContext
-  return view getFrameForTime: outputTime
+  return view.getFrameForTime: outputTime
 
 

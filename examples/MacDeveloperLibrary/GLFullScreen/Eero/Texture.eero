@@ -27,9 +27,9 @@ implementation Texture
   //------------------------------------------------------------------------------------------------
   //
   initWithPath: String, return id = self
-    if self = super init
-      if self getImageDataFromPath: path
-        self loadTexture
+    if (self = super.init)
+      if self.getImageDataFromPath: path
+        self.loadTexture
 
   //------------------------------------------------------------------------------------------------
   //
@@ -43,7 +43,7 @@ implementation Texture
     
     data = (GLubyte*) calloc(TEXTURE_WIDTH * TEXTURE_HEIGHT * 4, sizeof(GLubyte))
     
-    URL url = URL fileURLWithPath: path
+    URL url = URL.fileURLWithPath: path
     src := ImageSourceCreateWithURL((CFURLRef)url, NULL)
   
     if src == NULL
@@ -121,7 +121,7 @@ implementation Texture
 
     glDeleteTextures(1, &texId)
     glDeleteBuffers(1, &pboId)
-    super dealloc
+    super.dealloc
 
 end
 
