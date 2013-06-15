@@ -59,7 +59,8 @@ implementation Texture
     
     colorSpace := ColorSpaceCreateDeviceRGB()
     context := BitmapContextCreate(data, width, height, 8, 4 * width,
-                                   colorSpace, kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host)
+                                   colorSpace,
+                                   (CGBitmapInfo)(kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host))
     ColorSpaceRelease(colorSpace)
     
     // Core Graphics referential is upside-down compared to OpenGL referential
