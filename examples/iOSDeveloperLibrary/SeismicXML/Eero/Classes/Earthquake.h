@@ -13,37 +13,13 @@
 
 interface Earthquake
 
-  private
-    // Magnitude of the earthquake on the Richter scale.
-    CGFloat magnitude
+  CGFloat magnitude {nonatomic, assign}
 
-    // Name of the location of the earthquake.
-    String location
+  String location   {nonatomic, retain}
+  Date date         {nonatomic, retain}
+  URL USGSWebLink   {nonatomic, retain}
 
-    // Date and time at which the earthquake occurred.
-    Date date
-
-    // Holds the URL to the USGS web page of the earthquake. The application uses this URL to open that page in Safari.
-    URL USGSWebLink
-
-    // Latitude and longitude of the earthquake. These properties are not displayed by the application, but are used to
-    // create a URL for opening the Maps application. They could alternatively be used in conjuction with MapKit 
-    // to be shown in a map view.
-    //
-    double latitude
-    double longitude
-
-  property (nonatomic, assign)
-    CGFloat magnitude
-
-  property (nonatomic, retain)
-    String location
-    Date date
-    URL USGSWebLink
-
-  property (nonatomic, assign)
-    double latitude
-    double longitude
+  double latitude, longitude  {nonatomic, assign}
 
 end
 

@@ -7,10 +7,6 @@
 
 interface Texture
 
-  GLuint  texId
-  GLuint  pboId
-  GLubyte *data
-
   initWithPath:(NSString*)path, return id
   textureName, return GLuint
 

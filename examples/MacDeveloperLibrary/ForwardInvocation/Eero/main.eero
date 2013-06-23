@@ -11,8 +11,6 @@
 
 
 interface TargetProxy : Proxy
-  id realObject1
-  id realObject2
 
   initWithTarget1: id, target2: id, return id
 
@@ -62,6 +60,9 @@ int main(int argc, const char *argv[])
 
 
 implementation TargetProxy
+
+  id realObject1
+  id realObject2
 
   initWithTarget1: id, target2: id, return id = self
     realObject1 = target1.retain

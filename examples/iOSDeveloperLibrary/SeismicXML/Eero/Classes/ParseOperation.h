@@ -22,24 +22,7 @@ class Earthquake
 
 interface ParseOperation : Operation
 
-  protected
-    Data earthquakeData
-
-  private
-    DateFormatter dateFormatter
-    
-  private // these variables are used during parsing
-    Earthquake currentEarthquakeObject
-    MutableArray currentParseBatch;
-    MutableString currentParsedCharacterData
-    
-    BOOL accumulatingParsedCharacterData
-    BOOL didAbortParsing
-    UInteger parsedEarthquakesCounter
-
-
-  property (copy, readonly)
-    Data earthquakeData
+  Data earthquakeData  {copy, readonly}
 
   initWithData: Data, return id
 

@@ -21,10 +21,13 @@
 
 interface SeismicXMLAppDelegate ()
 
-  property (nonatomic, retain)
-    URLConnection  earthquakeFeedConnection
-    MutableData    earthquakeData           // the data returned from the URLConnection
-    OperationQueue parseQueue               // the queue that manages our Operation for parsing earthquake data
+  URLConnection earthquakeFeedConnection  {nonatomic, retain}
+
+  // the data returned from the URLConnection
+  MutableData earthquakeData  {nonatomic, retain}
+
+  // the queue that manages our Operation for parsing earthquake data
+  OperationQueue parseQueue  {nonatomic, retain}
 
   //------------------------------------------------------------------------------------------------
   addEarthquakesToList: Array earthquakes

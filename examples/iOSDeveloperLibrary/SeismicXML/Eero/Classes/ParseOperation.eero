@@ -31,10 +31,9 @@ const String kEarthquakesMsgErrorKey = 'EarthquakesMsgErrorKey'
 
 //--------------------------------------------------------------------------------------------------
 interface ParseOperation () <NSXMLParserDelegate>
-  property (nonatomic, retain)
-    Earthquake    currentEarthquakeObject
-    MutableArray  currentParseBatch
-    MutableString currentParsedCharacterData
+  Earthquake    currentEarthquakeObject     {nonatomic, retain}
+  MutableArray  currentParseBatch           {nonatomic, retain}
+  MutableString currentParsedCharacterData  {nonatomic, retain}
 end
 
 #pragma mark -
@@ -65,6 +64,19 @@ static const kGeoRSSPointElementName := 'georss:point'
 
 //--------------------------------------------------------------------------------------------------
 implementation ParseOperation
+
+  Data earthquakeData
+
+  DateFormatter dateFormatter
+    
+  // these variables are used during parsing
+  Earthquake currentEarthquakeObject
+  MutableArray currentParseBatch;
+  MutableString currentParsedCharacterData
+    
+  BOOL accumulatingParsedCharacterData
+  BOOL didAbortParsing
+  UInteger parsedEarthquakesCounter
 
   synthesize earthquakeData,
              currentEarthquakeObject,

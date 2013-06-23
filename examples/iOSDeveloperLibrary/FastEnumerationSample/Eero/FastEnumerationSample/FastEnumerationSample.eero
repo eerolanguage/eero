@@ -16,14 +16,13 @@
 
 interface MyFastEnumerationSample <FastEnumeration>
 
-  private
-    std::vector<Integer> list
-
   - initWithCapacity: UInteger, return id
 
 end
 
 implementation MyFastEnumerationSample
+
+  std::vector<Integer> list
 
   // Designated initializer for this class.
   // Since this is just a sample, we'll generate some random data
