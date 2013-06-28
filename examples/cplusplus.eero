@@ -31,7 +31,7 @@ int main()
 
   string stlString = "abc"
 
-  for char c : stlString
+  for char c in stlString
     cout << c << endl
 
   objcArray := [ 'x', 'y', 'z' ]
@@ -45,7 +45,7 @@ int main()
     Log('caught C++ exception: %s', e.what())
 
   catch Exception e  // handle objc exceptions
-    Log('Caught %@ => %@', e name, e reason)
+    Log('Caught %@ => %@', e.name, e.reason)
 
   catch ... // handle exceptions of any sort not caught previously
     Log('caught "...!"')
@@ -57,7 +57,7 @@ int main()
   intVect.push_back(10)
   intVect.push_back(20)
 
-  std::for_each( intVect.begin(), intVect.end(), ^(int x | cout << x << endl) )
+  std::for_each( intVect.begin(), intVect.end(), (int x | cout << x << endl) )
 
   return 0
 

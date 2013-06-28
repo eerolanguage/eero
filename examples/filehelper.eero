@@ -1,7 +1,7 @@
 //---------------------------------------------------------------------------------------------
 // To compile and run this example from the command line:
 //
-// $ <path_to_eero_clang>/clang -fobjc-gc -framework Foundation filehelper.eero -o filehelper
+// $ <path_to_eero_clang>/clang -framework Foundation filehelper.eero -o filehelper
 //
 // $ touch readme.txt
 // $ touch writeme.txt
@@ -30,11 +30,10 @@
 #import <Foundation/Foundation.h>
 
 
-interface FileHelper : Object  // "Object" is the same as "NSObject"
+interface FileHelper  // NSObject base class by default
 
-  property (readonly)
-    String volumeName    // both are readonly properties
-    String volumeFormat  //
+  String volumeName   {readonly}  // both are readonly properties
+  String volumeFormat {readonly} //
 
   + pathStringWithComponents: Array, return String  // class method
 
@@ -59,9 +58,9 @@ implementation FileHelper  // no '@' needed for objc keywords
   openFile: String path, withPermissions: String = 'readonly', return FileHandle
     FileHandle handle = nil
     if permissions == 'readonly' or permissions == 'r'
-      handle = FileHandle fileHandleForReadingAtPath: path
+      handle = FileHandle.fileHandleForReadingAtPath: path
     else if permissions == 'readwrite' or permissions == 'rw'
-      handle = FileHandle fileHandleForUpdatingAtPath: path
+      handle = FileHandle.fileHandleForUpdatingAtPath: path
     return handle
 
 end
@@ -71,26 +70,26 @@ end
 //
 implementation FileHandle (operators)
   shiftLeft: String string  // overload "<<" operator to append string data to file
-    self writeData: (string dataUsingEncoding: NSUTF8StringEncoding)
+    self.writeData: (string.dataUsingEncoding: NSUTF8StringEncoding)
 end
 
 
 int main() 
  
-  helper := FileHelper new  // declare variable "helper" via type inference
+  helper := FileHelper.new  // declare variable "helper" via type inference
 
   files := []  // empty array literal implies mutable
-  files addObject: (helper openFile: 'readme.txt')  // can group message in parens
+  files.addObject: (helper.openFile: 'readme.txt')
 
-  writableFile := helper openFile: 'writeme.txt', withPermissions: 'rw'
-  files addObject: writableFile
+  writableFile := helper.openFile: 'writeme.txt', withPermissions: 'rw'
+  files.addObject: writableFile
 
   writableFile << 'ABCDEFG' // using overloaded operator
   writableFile << '\n'      //
 
   for FileHandle handle in files  // all objects are pointers, so no '*' needed
 
-    descriptor := handle fileDescriptor
+    descriptor := handle.fileDescriptor
     String type = nil
 
     switch descriptor
@@ -102,9 +101,9 @@ int main()
         type = 'bad descriptor'
 
     Log( 'File descriptor is %@ %@', (Number)descriptor, '(' + type + ')' )
-    handle closeFile
+    handle.closeFile
 
-  fullpath := FileHelper pathStringWithComponents: ['tmp', 'examples', 'files']
+  fullpath := FileHelper.pathStringWithComponents: ['tmp', 'examples', 'files']
   Log('Full path example: %@', fullpath)
 
   return 0  // semicolons are optional almost everywhere
