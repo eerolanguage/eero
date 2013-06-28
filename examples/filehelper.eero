@@ -43,9 +43,9 @@ end
 
 implementation FileHelper  // no '@' needed for objc keywords
 
-  private  // no "{}" needed for instance variables
-    int iBytesUsed
-    int iBytesFree
+  // no "{}" needed for instance variables
+  int iBytesUsed
+  int iBytesFree
 
   // "components" is the default arg variable name for "pathStringWithComponents"
   + pathStringWithComponents: Array, return String
