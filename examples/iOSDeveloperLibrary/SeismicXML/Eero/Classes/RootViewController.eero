@@ -8,7 +8,6 @@
 //
 // Abstract: View controller for displaying the earthquake list.
 //
-#import "LegacyMacros.h"
 #import "RootViewController.h"
 #import 'Earthquake.h'
 
@@ -207,13 +206,13 @@ implementation RootViewController
   //
   tableView: TableView, didSelectRowAtIndexPath: IndexPath
 
-    sheet := ActionSheet.alloc.initWithTitle: LocalizedString('External App Sheet Title',
-                                                              'Title for sheet displayed with options for displaying Earthquake data in other applications'),
+    sheet := ActionSheet.alloc.initWithTitle: NSLocalizedString('External App Sheet Title',
+                                                                'Title for sheet displayed with options for displaying Earthquake data in other applications'),
                                     delegate: self,
-                           cancelButtonTitle: LocalizedString('Cancel', 'Cancel'),
+                           cancelButtonTitle: NSLocalizedString('Cancel', 'Cancel'),
                       destructiveButtonTitle: nil,
-                           otherButtonTitles: LocalizedString('Show USGS Site in Safari', 'Show USGS Site in Safari'),
-                                              LocalizedString('Show Location in Maps', 'Show Location in Maps'),
+                           otherButtonTitles: NSLocalizedString('Show USGS Site in Safari', 'Show USGS Site in Safari'),
+                                              NSLocalizedString('Show Location in Maps', 'Show Location in Maps'),
                                               nil
     sheet.showInView: self.view
     sheet.release

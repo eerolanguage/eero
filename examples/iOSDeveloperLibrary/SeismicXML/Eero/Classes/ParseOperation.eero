@@ -8,7 +8,6 @@
 //
 // Abstract: The NSOperation class used to perform the XML parsing of earthquake data.
 //
-#import "LegacyMacros.h"
 #import 'ParseOperation.h'
 #import 'Earthquake.h'
 
@@ -98,7 +97,7 @@ implementation ParseOperation
 
   //------------------------------------------------------------------------------------------------
   addEarthquakesToList: Array earthquakes
-    Assert(NSThread.isMainThread)
+    assert(NSThread.isMainThread)
 
     NotificationCenter.defaultCenter.postNotificationName: kAddEarthquakesNotif,
                                                   object: self,

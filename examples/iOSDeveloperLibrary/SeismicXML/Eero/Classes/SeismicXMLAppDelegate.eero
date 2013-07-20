@@ -15,7 +15,6 @@
 
 // this framework was imported so we could use the kCFURLErrorNotConnectedToInternet error code
 #import <CFNetwork/CFNetwork.h>
-#import "LegacyMacros.h"
 
 #pragma mark SeismicXMLAppDelegate () 
 
@@ -138,8 +137,8 @@ implementation SeismicXMLAppDelegate
       self.earthquakeData = MutableData.data
 
     else
-      const localizedString := LocalizedString('HTTP Error',
-                                               'Error message displayed when receving a connection error.')
+      const localizedString := NSLocalizedString('HTTP Error',
+                                                 'Error message displayed when receving a connection error.')
 
       Error error = Error.errorWithDomain: 'HTTP',
                                      code: httpResponse.statusCode,
@@ -157,8 +156,8 @@ implementation SeismicXMLAppDelegate
 
     if error.code == (int)kCFURLErrorNotConnectedToInternet
 
-      const localizedString := LocalizedString('No Connection Error',
-                                               'Error message displayed when not connected to the Internet.')
+      const localizedString := NSLocalizedString('No Connection Error',
+                                                 'Error message displayed when not connected to the Internet.')
 
       Error noConnectionError = Error.errorWithDomain: CocoaErrorDomain,
                                                  code: kCFURLErrorNotConnectedToInternet,
@@ -201,8 +200,8 @@ implementation SeismicXMLAppDelegate
 
     errorMessage := error.localizedDescription
 
-    title := LocalizedString('Error Title',
-                             'Title for alert displayed when download or parse error occurs.')
+    title := NSLocalizedString('Error Title',
+                               'Title for alert displayed when download or parse error occurs.')
 
     alertView := AlertView.alloc.initWithTitle: title,
                                        message: errorMessage,
