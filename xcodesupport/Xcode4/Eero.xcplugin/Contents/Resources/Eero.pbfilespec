@@ -19,11 +19,9 @@
     // Source code file types
     {
         Identifier = sourcecode.eero;
-        BasedOn = sourcecode;
+        BasedOn = sourcecode.c;
         Name = "Eero source files";
         Extensions = (eero, ero);
-        ComputerLanguage = default;
-        Language = "xcode.lang.simpleColoring";
         AppliesToBuildRules = no;
         GccDialectName = "eero";
         UTI = "org.eerolanguage.eero-source"; 
