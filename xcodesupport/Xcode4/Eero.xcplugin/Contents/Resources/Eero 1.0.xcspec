@@ -40,14 +40,6 @@
         Description = "Eero LLVM compiler";
         IsAbstract = YES;
         ShowInCompilerSelectionPopup = NO;
-/*
-        Architectures = (
-            i386,
-            "x86_64",
-            armv6,
-            armv7,
-        );
-*/
         "OptionConditionFlavors" = (
             arch,
             sdk,
@@ -76,6 +68,53 @@
                 DefaultValue = "$(IPHONEOS_DEPLOYMENT_TARGET)";
                 CommandLinePrefixFlag = "-mios-version-min=";
             },
+            {
+              Name = "CLANG_ENABLE_OBJC_ARC";
+              Type = Boolean;
+              DefaultValue = NO;
+              CommandLineArgs = {
+                YES = (
+                  "-fobjc-arc",
+                );
+                NO = ();
+              };
+              AdditionalLinkerArgs = {
+                YES = (
+                  "-fobjc-arc",
+                );
+                NO = ();
+              };
+              FileTypes = (
+                "sourcecode.c.objc",
+                "sourcecode.eero",
+                "sourcecode.cpp.objcpp",
+              );
+              Category = LanguageObjC;
+            },
+            {
+              Name = "CLANG_LINK_OBJC_RUNTIME";
+              Type = Boolean;
+              DefaultValue = YES;
+              CommandLineArgs = {
+                YES = ();
+                NO = ();
+              };
+              // This option is passed for linking to inform the compiler
+              // that the ObjC runtime must be linked in (with possible
+              // backwards compatibility libraries linked in).
+              AdditionalLinkerArgs = {
+                YES = ( "-fobjc-link-runtime" );
+                NO = ();
+              };
+              FileTypes = (
+                "sourcecode.c.objc",
+                "sourcecode.eero",
+                "sourcecode.cpp.objcpp",
+              );
+              Category = LanguageObjC;
+            },
         );
     },
+
 )
+
