@@ -19,7 +19,7 @@
     // Source code file types
     {
         Identifier = sourcecode.eero;
-        BasedOn = sourcecode.c;
+        BasedOn = sourcecode.c.objc;
         Name = "Eero source files";
         Extensions = (eero, ero);
         AppliesToBuildRules = no;
