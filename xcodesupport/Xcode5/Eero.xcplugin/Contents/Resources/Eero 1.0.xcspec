@@ -1,0 +1,69 @@
+//
+//    Eero LLVM Compiler build task
+//
+//    Original file on which this is based is
+//    Copyright (c) 2000-2013 Apple Inc.  All rights reserved.
+//
+
+(
+    {
+        Identifier = "org.eerolanguage.compilers.clang.1_0";
+        Type = Compiler;
+        BasedOn = "com.apple.compilers.llvm.clang.1_0";
+        Class = "XCCompilerSpecificationClang";
+        Name = "Eero LLVM compiler";
+        Description = "Eero LLVM compiler";
+        Vendor = eerolanguage.org;
+        Version = "1.0";
+        IsAbstract = NO;
+        ShowInCompilerSelectionPopup = YES;
+        FileTypes = (
+            "sourcecode.c.c",
+            "sourcecode.c.objc",
+            "sourcecode.eero",
+            "sourcecode.cpp.cpp",
+            "sourcecode.cpp.objcpp",
+            "sourcecode.asm",
+        );
+        ExecPath = "/usr/local/eerolanguage/bin/clang";
+    },
+
+    {
+        Identifier = "org.eerolanguage.compilers.clang.1_0.compiler";
+        Type = Compiler;
+        BasedOn = "org.eerolanguage.compilers.clang.1_0";
+        Name = "Eero LLVM compiler";
+        Description = "Eero LLVM compiler";
+        IsAbstract = YES;
+        ShowInCompilerSelectionPopup = NO;
+        Architectures = (
+            i386,
+            "x86_64",
+            armv6,
+            armv7,
+        );
+        "OptionConditionFlavors" = (
+            arch,
+            sdk,
+        );
+        ExecCPlusPlusLinkerPath = "clang++";
+        SupportsGeneratePreprocessedFile = YES;
+        SupportsGenerateAssemblyFile = YES;
+        CommandResultsPostprocessor = "XCClangResultsPostprocessor";
+        SupportsSerializedDiagnostics = YES;
+
+        DependencyInfoFile = "$(OutputDir)/$(OutputFileBase).d";
+        DependencyInfoArgs = ("-MMD", "-MT", "dependencies", "-MF", "$(DependencyInfoFile)");
+
+        DeletedProperties = ( GCC_MACOSX_VERSION_MIN );
+
+        Options = (
+            {   Name = GCC_IPHONEOS_VERSION_MIN;
+                Type = String;
+                DefaultValue = "$(IPHONEOS_DEPLOYMENT_TARGET)";
+                CommandLinePrefixFlag = "-mios-version-min=";
+            },
+        );
+    },
+)
+
