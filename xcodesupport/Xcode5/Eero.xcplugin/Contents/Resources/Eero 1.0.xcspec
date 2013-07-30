@@ -58,6 +58,18 @@
         DeletedProperties = ( GCC_MACOSX_VERSION_MIN );
 
         Options = (
+            {
+                Name = "GCC_ENABLE_EXCEPTIONS";
+                Type = Boolean;
+                DefaultValue = YES;
+                CommandLineFlag = "-fexceptions";
+            },
+            {
+                Name = "LD_NO_IMPLICIT_DYLIBS";
+                Type = Boolean;
+                DefaultValue = YES;
+                AdditionalLinkerArgs = ( "-Xlinker", "-no_implicit_dylibs" );
+            },
             {   Name = GCC_IPHONEOS_VERSION_MIN;
                 Type = String;
                 DefaultValue = "$(IPHONEOS_DEPLOYMENT_TARGET)";
