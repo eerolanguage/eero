@@ -23,6 +23,5 @@ This script adds basic syntax colorizing for Eero source files to Xcode. It also
 **Limitations**
 
 * Syntax colorizing is limited to lexical (keyword-based) parsing. Semantic recognition of types, functions, etc., is not supported.
-* Autocompletion is not supported (only partially working).
+* Autocompletion is not fully supported. Xcode will autocomplete certain identifiers, but there isn't full recognition of classes and their methods.
 * "Live issues" (on-the-fly compiling) is not currently supported.
-* ARC linker problem in Xcode 4.3.1, must disable to build. Under investigation.
