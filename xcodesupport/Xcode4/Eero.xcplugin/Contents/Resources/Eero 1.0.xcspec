@@ -1,9 +1,9 @@
-/**
-    Eero LLVM Compiler build task
-
-    Original file on which this is based is
-    Copyright (c) 2000-2011 Apple Inc.  All rights reserved.
-*/
+//
+//    Eero LLVM Compiler build task
+//
+//    Original file on which this is based is
+//    Copyright (c) 2000-2013 Apple Inc.  All rights reserved.
+//
 
 (
     {
@@ -25,10 +25,6 @@
             "sourcecode.cpp.objcpp",
             "sourcecode.asm",
         );
-        OptionConditionFlavors = (
-            arch,
-            sdk,
-        );
         ExecPath = "/usr/local/eerolanguage/bin/clang";
     },
 
@@ -40,16 +36,27 @@
         Description = "Eero LLVM compiler";
         IsAbstract = YES;
         ShowInCompilerSelectionPopup = NO;
+        Architectures = (
+            i386,
+            "x86_64",
+            armv6,
+            armv7,
+        );
         "OptionConditionFlavors" = (
             arch,
             sdk,
         );
-
+        ExecCPlusPlusLinkerPath = "clang++";
         SupportsGeneratePreprocessedFile = YES;
         SupportsGenerateAssemblyFile = YES;
         CommandResultsPostprocessor = "XCClangResultsPostprocessor";
         SupportsSerializedDiagnostics = YES;
+
+        DependencyInfoFile = "$(OutputDir)/$(OutputFileBase).d";
+        DependencyInfoArgs = ("-MMD", "-MT", "dependencies", "-MF", "$(DependencyInfoFile)");
+
         DeletedProperties = ( GCC_MACOSX_VERSION_MIN );
+
         Options = (
             {
                 Name = "GCC_ENABLE_EXCEPTIONS";
@@ -68,53 +75,7 @@
                 DefaultValue = "$(IPHONEOS_DEPLOYMENT_TARGET)";
                 CommandLinePrefixFlag = "-mios-version-min=";
             },
-            {
-              Name = "CLANG_ENABLE_OBJC_ARC";
-              Type = Boolean;
-              DefaultValue = NO;
-              CommandLineArgs = {
-                YES = (
-                  "-fobjc-arc",
-                );
-                NO = ();
-              };
-              AdditionalLinkerArgs = {
-                YES = (
-                  "-fobjc-arc",
-                );
-                NO = ();
-              };
-              FileTypes = (
-                "sourcecode.c.objc",
-                "sourcecode.eero",
-                "sourcecode.cpp.objcpp",
-              );
-              Category = LanguageObjC;
-            },
-            {
-              Name = "CLANG_LINK_OBJC_RUNTIME";
-              Type = Boolean;
-              DefaultValue = YES;
-              CommandLineArgs = {
-                YES = ();
-                NO = ();
-              };
-              // This option is passed for linking to inform the compiler
-              // that the ObjC runtime must be linked in (with possible
-              // backwards compatibility libraries linked in).
-              AdditionalLinkerArgs = {
-                YES = ( "-fobjc-link-runtime" );
-                NO = ();
-              };
-              FileTypes = (
-                "sourcecode.c.objc",
-                "sourcecode.eero",
-                "sourcecode.cpp.objcpp",
-              );
-              Category = LanguageObjC;
-            },
         );
     },
-
 )
 
