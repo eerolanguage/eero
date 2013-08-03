@@ -21,8 +21,6 @@
 				while                       ,			
 				_Static_assert              ,			
 				__func__                    ,			
-				__objc_yes                  ,			
-				__objc_no                   ,			
 				private                     ,
 				protected                   ,			
 				public                      ,			
@@ -41,26 +39,13 @@
 				finally                      ,			
 				synchronized                 ,			
 				autoreleasepool              ,			
-				property                     ,			
 				package                      ,			
 				required                     ,			
 				optional                     ,			
 				synthesize                   ,			
 				dynamic                      ,			
 				import                       ,
-				self                         ,
-				nil                          ,
-				Nil                          ,
 				in                           ,
-				readwrite                  ,
-				readonly                   ,
-				strong                     ,
-				weak                       ,
-				copy                       ,
-				assign                     ,
-				retain                     ,
-				atomic                     ,
-				nonatomic                  ,
 				and                        ,
 				or                         ,
 				not                        ,
@@ -72,8 +57,6 @@
 				and_eq                     ,
 				or_eq                      ,
 				xor_eq                     ,
-				YES                        ,
-				NO                         ,
 			);
 			Type = "xcode.syntax.keyword";
 			AltType = "xcode.syntax.identifier";
@@ -106,6 +89,28 @@
 				unsigned                    ,			
 				void                        ,			
 				volatile                    ,			
+				id                          ,
+				instancetype                ,
+				Protocol                    ,
+				SEL                         ,
+				BOOL                        ,
+				readwrite                  ,
+				readonly                   ,
+				strong                     ,
+				weak                       ,
+				copy                       ,
+				assign                     ,
+				retain                     ,
+				atomic                     ,
+				nonatomic                  ,
+				__autoreleasing             ,			
+				__block                     ,			
+				__bridge                    ,			
+				__bridge_retained           ,			
+                __bridge_transfer           ,			
+				__strong                    ,			
+                __unsafe_unretained         ,			
+				__weak                      ,			
 				_Alignas                    ,			
 				_Alignof                    ,			
 				_Atomic                     ,			
@@ -113,13 +118,26 @@
 				_Complex                    ,			
 				_Generic                    ,			
 				_Imaginary                  ,			
-				id                          ,
-				instancetype                ,
-				Protocol                    ,
-				SEL                         ,
-				BOOL                        ,
 			);
 			Type = "xcode.syntax.identifier.type";
+		};
+	},
+
+	{
+		Identifier = "xcode.lang.eero.constant";
+		Syntax = {
+			StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+			Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+			Words = (
+				self                       ,
+				nil                        ,
+				Nil                        ,
+				YES                        ,
+				NO                         ,
+				__objc_yes                  ,			
+				__objc_no                   ,			
+			);
+			Type = "xcode.syntax.identifier.constant";
 		};
 	},
 
@@ -154,6 +172,7 @@
 				"xcode.lang.character",
 				"xcode.lang.eero.number",
 				"xcode.lang.eero.type",
+				"xcode.lang.eero.constant",
 				"xcode.lang.eero.identifier",
 			);
 			Type = "xcode.syntax.plain";
@@ -181,6 +200,7 @@
 				"xcode.lang.character",
 				"xcode.lang.eero.number",
 				"xcode.lang.eero.type",
+				"xcode.lang.eero.constant",
 				"xcode.lang.eero.identifier",
 			);
 			Type = "xcode.syntax.plain";
@@ -254,6 +274,7 @@
 			Tokenizer = "xcode.lang.eero.lexer";
 			Rules = (
 				"xcode.lang.eero.type",
+				"xcode.lang.eero.constant",
 				"xcode.lang.eero.identifier",
 			);
 			Type = "xcode.syntax.name.partial";

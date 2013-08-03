@@ -19,11 +19,10 @@
 // And you should see:
 // ABCDEFG
 //
-// Note that this example uses garbage collection (-fobjc-gc compiler switch). 
+// Note that this example uses ARC (-fobjc-arc compiler switch). 
 // Eero does assume any particular memory-management scheme, so traditional objc
 // reference counting could also be used (by adding appropriate 
-// autorelease/retain/release statements). ARC is supported as well, but currently 
-// requires an Apple-specific library.
+// autorelease/retain/release statements).
 //
 //---------------------------------------------------------------------------------------------
 
@@ -75,36 +74,37 @@ end
 
 
 int main() 
- 
-  helper := FileHelper.new  // declare variable "helper" via type inference
 
-  files := []  // empty array literal implies mutable
-  files.addObject: (helper.openFile: 'readme.txt')
+  autoreleasepool 
 
-  writableFile := helper.openFile: 'writeme.txt', withPermissions: 'rw'
-  files.addObject: writableFile
+    helper := FileHelper.new  // declare variable "helper" via type inference
 
-  writableFile << 'ABCDEFG' // using overloaded operator
-  writableFile << '\n'      //
+    files := []  // empty array literal implies mutable
+    files.addObject: (helper.openFile: 'readme.txt')
 
-  for FileHandle handle in files  // all objects are pointers, so no '*' needed
+    writableFile := helper.openFile: 'writeme.txt', withPermissions: 'rw'
+    files.addObject: writableFile
 
-    descriptor := handle.fileDescriptor
-    String type = nil
+    writableFile << 'ABCDEFG' // using overloaded operator
+    writableFile << '\n'      //
 
-    switch descriptor
-      case 0, 1, 2
-        type = 'stdin/out/err'
-      case 3 .. INT_MAX
-        type = 'regular file'
-      default
-        type = 'bad descriptor'
+    for FileHandle handle in files  // all objects are pointers, so no '*' needed
 
-    Log( 'File descriptor is %@ %@', (Number)descriptor, '(' + type + ')' )
-    handle.closeFile
+      descriptor := handle.fileDescriptor
+      String type = nil
 
-  fullpath := FileHelper.pathStringWithComponents: ['tmp', 'examples', 'files']
-  Log('Full path example: %@', fullpath)
+      switch descriptor
+        case 0, 1, 2
+          type = 'stdin/out/err'
+        case 3 .. INT_MAX
+          type = 'regular file'
+        default
+          type = 'bad descriptor'
+
+      Log( 'File descriptor is %@ %@', (Number)descriptor, '(' + type + ')' )
+
+    fullpath := FileHelper.pathStringWithComponents: ['tmp', 'examples', 'files']
+    Log('Full path example: %@', fullpath)
 
   return 0  // semicolons are optional almost everywhere
 

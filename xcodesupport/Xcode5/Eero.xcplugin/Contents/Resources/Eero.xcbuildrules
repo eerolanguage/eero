@@ -1,11 +1,5 @@
 //
-//    Original file on which this is based is
-//    Copyright (c) 1999-2008 Apple Inc.
-//    All rights reserved.
-//
-//
 // Support for Eero source code.
-//
 //
 // THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -16,14 +10,8 @@
 // WITH THIS SOFTWARE.
 //
 (
-    // Source code file types
-    {
-        Identifier = sourcecode.eero;
-        BasedOn = sourcecode.c.objc;
-        Name = "Eero source files";
-        Extensions = (eero, ero);
-        AppliesToBuildRules = no;
-        GccDialectName = "eero";
-        UTI = "org.eerolanguage.eero-source"; 
+    {   Name = "Default Eero rule";
+        FileType = "sourcecode.eero";
+        CompilerSpec = "org.eerolanguage.compilers.clang.1_0";
     },
 )
