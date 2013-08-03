@@ -96,7 +96,7 @@ implementation SeismicXMLAppDelegate
     // If the URL is more dynamic, then you should implement a more flexible validation technique,
     // and be able to both recover from errors and communicate problems to the user in an
     // unobtrusive manner.
-    assert(self.earthquakeFeedConnection != nil) // TODO: investigate legacy macros
+    NSAssert(self.earthquakeFeedConnection != nil, 'Failure to create URL connection.')
 
   
     // Start the status bar network activity indicator. We'll turn it off when the connection
