@@ -1,0 +1,40 @@
+//
+//  GHDAppDelegate.m
+//  RACiOSDemo
+//
+//  Created by Josh Abernathy on 4/17/12.
+//  Copyright (c) 2012 GitHub, Inc. All rights reserved.
+//
+//  Eero conversion by Andy Arvanitis for eerolanguage.org
+//
+
+#import "GHDAppDelegate.h"
+#import 'GHDMainViewController.h'
+
+using prefix UI
+
+interface GHDAppDelegate ()
+   NavigationController navigationController {nonatomic, strong}
+end
+
+
+implementation GHDAppDelegate
+
+   #pragma mark UIApplicationDelegate
+
+   application: Application, didFinishLaunchingWithOptions: Dictionary, return BOOL
+
+      mainViewController := GHDMainViewController.alloc.initWithNibName: nil, bundle: nil
+
+      self.navigationController = NavigationController.alloc.initWithRootViewController: mainViewController
+
+      self.window = Window.alloc.initWithFrame: Screen.mainScreen.bounds
+      self.window.backgroundColor = Color.whiteColor
+      self.window.rootViewController = self.navigationController
+      self.window.makeKeyAndVisible
+
+      return YES
+
+end
+
+

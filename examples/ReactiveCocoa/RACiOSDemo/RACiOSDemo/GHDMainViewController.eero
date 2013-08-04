@@ -1,0 +1,72 @@
+//
+//  GHDMainViewController.m
+//  RACiOSDemo
+//
+//  Created by Josh Abernathy on 4/17/12.
+//  Copyright (c) 2012 GitHub, Inc. All rights reserved.
+//
+//  Eero conversion by Andy Arvanitis for eerolanguage.org
+//
+
+#import 'GHDMainViewController.h'
+#import <ReactiveCocoa/ReactiveCocoa.h>
+#import "GHDMainView.h"
+
+interface GHDMainViewController ()
+
+   GHDMainView view {nonatomic, strong}
+
+   String text    {nonatomic, copy}
+   String label   {nonatomic, copy}
+   String text2   {nonatomic, copy}
+   String label2  {nonatomic, copy}
+
+end
+
+
+implementation GHDMainViewController
+
+   #pragma mark UIViewController
+
+   initWithNibName: String, bundle: Bundle, return id
+
+      self = super.initWithNibName: name, bundle: bundle
+
+      if self == nil
+         return nil
+
+      RACAble(self.text).subscribeNext: (id x | Log('text: %@', x))
+      RACAble(self.text2).subscribeNext: (id x | Log('text2: %@', x))
+
+      textSignal := RACAble(self.text).map: (id x | return x.uppercaseString)
+      textSignal.toProperty: @keypath(self.label), onObject: self
+
+      text2Signal := RACAble(self.text2).map: (id x | return x.lowercaseString)
+      text2Signal.toProperty: @keypath(self.label2), onObject: self
+
+      RACBind(self.view.label.text) = RACBind(self.label)
+      RACBind(self.view.label2.text) = RACBind(self.label2)
+
+      return self
+
+   loadView
+      self.view = GHDMainView.viewFromNib
+
+   viewDidLoad
+      super.viewDidLoad
+
+      // Even though iOS doesn't give us bindings like AppKit, we can fake them
+      // pretty easily using RAC.
+      //
+      self.view.textField.rac_textSignal.subscribe: RACBind(self.text)
+      self.view.textView.rac_textSignal.subscribe: RACBind(self.text2)
+
+   viewDidUnload
+      super.viewDidUnload
+
+   shouldAutorotateToInterfaceOrientation: UIInterfaceOrientation, return BOOL
+      return orientation == UIInterfaceOrientationPortrait
+
+end
+
+

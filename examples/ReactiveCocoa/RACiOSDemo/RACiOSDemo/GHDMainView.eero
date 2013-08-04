@@ -1,0 +1,34 @@
+//
+//  GHDMainView.m
+//  RACiOSDemo
+//
+//  Created by Josh Abernathy on 4/17/12.
+//  Copyright (c) 2012 GitHub, Inc. All rights reserved.
+//
+//  Eero conversion by Andy Arvanitis for eerolanguage.org
+//
+
+#import "GHDMainView.h"
+
+
+implementation GHDMainView
+
+   #pragma mark API
+
+   using prefix UI
+
+   + viewFromNib, return id
+
+      nib := Nib.nibWithNibName: NSStringFromClass(self), bundle: nil
+
+      topLevelObjects := nib.instantiateWithOwner: nil, options: nil
+
+      for id object in topLevelObjects
+         if object.isKindOfClass: self
+            return object
+
+      NSAssert(NO, 'We did not find a top-level object of class %@', NSStringFromClass(self))
+      
+      return nil
+
+end
