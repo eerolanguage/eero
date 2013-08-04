@@ -20,6 +20,8 @@
 	<string>1</string>
 	<key>XC4Compatible</key>
 	<true/>
+	<key>XC5Compatible</key>
+	<true/>
 	<key>XCGCReady</key>
 	<true/>
 	<key>XCPluginHasUI</key>
