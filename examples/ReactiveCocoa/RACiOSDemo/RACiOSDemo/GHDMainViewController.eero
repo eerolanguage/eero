@@ -38,11 +38,11 @@ implementation GHDMainViewController
       RACAble(self.text).subscribeNext: (id x | Log('text: %@', x))
       RACAble(self.text2).subscribeNext: (id x | Log('text2: %@', x))
 
-      textSignal := RACAble(self.text).map: (id x | return x.uppercaseString)
-      textSignal.toProperty: @keypath(self.label), onObject: self
+      (RACAble(self.text).map: (id x | return x.uppercaseString)
+       ).toProperty: @keypath(self.label), onObject: self
 
-      text2Signal := RACAble(self.text2).map: (id x | return x.lowercaseString)
-      text2Signal.toProperty: @keypath(self.label2), onObject: self
+      (RACAble(self.text2).map: (id x | return x.lowercaseString)
+       ).toProperty: @keypath(self.label2), onObject: self
 
       RACBind(self.view.label.text) = RACBind(self.label)
       RACBind(self.view.label2.text) = RACBind(self.label2)
