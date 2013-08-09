@@ -17,6 +17,7 @@ using prefix UI
 implementation RootViewController
 
   synthesize earthquakeList
+  dynamic dateFormatter
 
 #pragma mark -
 
