@@ -7,7 +7,7 @@
 
 interface Texture
 
-  initWithPath:(NSString*)path, return id
+  initWithPath: String, return id
   textureName, return GLuint
 
 end

@@ -16,7 +16,7 @@ static const TEXTURE_HEIGHT :=  512
 
 interface Texture (PrivateMethods)
 
-  getImageDataFromPath:(NSString*)path, return BOOL
+  getImageDataFromPath: String, return BOOL
 
   loadTexture
 
@@ -41,7 +41,7 @@ implementation Texture
 
   //------------------------------------------------------------------------------------------------
   //
-  getImageDataFromPath:(NSString*)path, return BOOL
+  getImageDataFromPath: String, return BOOL
 
     using prefix CG
     
