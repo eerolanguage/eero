@@ -1,0 +1,114 @@
+# [PackageDev] target_format: plist, ext: tmLanguage
+---
+name: Eero
+scopeName: source.eero
+fileTypes: [eero, ero, eh]
+uuid: EBA8223C-B300-4D85-A112-FDFC412C2F2A
+
+patterns:
+- match: "\\b(break|case|continue|default|do|else|for|goto|if|return|switch|typedef|while)\\b"
+  name: keyword.control.eero
+
+- match: "\\b(autoreleasepool|catch|finally|in|synchronized|throw|try)\\b"
+  name: keyword.control.eero
+
+- match: "^\\s*(class|compatibility_alias|end|implementation|import|interface|protocol|using\\s*prefix)\\b"
+  name: keyword.other.eero
+
+- match: "\\b(sizeof)\\b"
+  name: keyword.operator.eero
+
+- match: "\\b(and|and_eq|bitand|bitor|compl|not|not_eq|or|or_eq|xor|xor_eq)\\b"
+  name: keyword.operator.eero
+
+- match: "\\b(__attribute__|__has_attribute|_Pragma|typeof|__typeof__)\\b"
+  name: keyword.operator.eero
+
+- match: "\\b(defs|encode|protocol|selector)\\s*(?=\\()"
+  name: keyword.operator.eero
+
+- match: "\\b(char|double|enum|float|int|long|short|signed|struct|union|unsigned|void)\\b\\s*\\**"
+  name: storage.type.primitive.eero
+
+- match: "\\b(_Bool|_Complex|_Imaginary|size_t|wchar_t)\\b"
+  name: storage.type.primitive.eero
+
+- match: "\\b(Class|BOOL|id|instancetype|Protocol|SEL)\\b"
+  name: storage.type.eero
+
+- match: ":="
+  name: storage.type.operator.eero
+
+- match: "\\b(auto|const|inline|register|restrict|static|volatile)\\b"
+  name: storage.modifier.eero
+
+- match: "\\b(__autoreleasing|__block|__bridge|__bridge_retained|__bridge_transfer|__strong|__unsafe_unretained|__weak)\\b"
+  name: storage.modifier.eero
+
+- match: "\\b(assign|atomic|copy|getter|nonatomic|readonly|readwrite|retain|setter|strong|weak)\\b"
+  name: storage.modifier.other.eero
+
+- match: "\\b(dynamic|optional|required|synthesize)\\b"
+  name: storage.modifier.other.eero
+
+- match: "\\b(package|private|protected|public)\\b"
+  name: storage.modifier.other.eero
+
+- match: "<[a-zA-Z_]+[a-zA-Z0-9_,\\s]*>"
+  name: storage.modifier.other.eero
+
+- match: "\\b(false|nil|Nil|NO|NULL|__objc_no|__objc_yes|true|YES)\\b"
+  name: keyword constant.language.eero
+
+- match: "\\b(self|super)\\b"
+  name: keyword variable.language.eero
+
+- match: "\\b[0-9]+[0-9_]*[.][0-9_]+([eE][+-]?[0-9_]+)?[Lf]?\\b"
+  name: constant.numeric.floating-point.eero
+
+- match: "\\b[0-9]+[0-9_]*u?l?\\b"
+  name: constant.numeric.integer.eero
+
+- match: "\\b0[xX][0-9a-fA-F_]+u?l?\\b"
+  name: constant.numeric.hexadecimal.eero
+
+- match: "(?<=^|[:=,(?{])\\s*\\|[a-zA-Z_]+[a-zA-Z0-9_:]*\\|(?=\\s*($|[,:)};]))"
+  name: string constant.language.other.eero
+
+- match: "//.*$"
+  name: comment.other.eero
+
+- begin: "/\\*"
+  end:   "\\*/"
+  name: comment.block.eero
+
+- match: "-----.*$"
+  name: comment.eero
+
+- begin: "\""
+  end:   "\""
+  name: string.quoted.double constant.character.eero
+
+- begin: "'"
+  end:   "'"
+  name: string.quoted.single
+
+- match: "^\\s*#(define|endif|else|elif|error|if|ifdef|ifndef|line|pragma|undef|warning)\\b"
+  name: keyword.other.directive.eero meta.preprocessor.c
+
+- begin: "^\\s*#(import|include)"
+  end:   "(?=(?://|/\\*))|$"
+  name: keyword.other.directive.eero meta.preprocessor.c
+  patterns:
+  - begin: "<"
+    end:   ">"
+    name: string.quoted.double constant.character.eero
+  - begin: "\""
+    end:   "\""
+    name: string.quoted.double constant.character.eero
+  - begin: "'"
+    end:   "'"
+    name: string.quoted.single
+
+
+...
