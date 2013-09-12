@@ -99,23 +99,6 @@
 				Protocol                    ,
 				SEL                         ,
 				BOOL                        ,
-				readwrite                  ,
-				readonly                   ,
-				strong                     ,
-				weak                       ,
-				copy                       ,
-				assign                     ,
-				retain                     ,
-				atomic                     ,
-				nonatomic                  ,
-				__autoreleasing             ,			
-				__block                     ,			
-				__bridge                    ,			
-				__bridge_retained           ,			
-                __bridge_transfer           ,			
-				__strong                    ,			
-                __unsafe_unretained         ,			
-				__weak                      ,			
 				_Alignas                    ,			
 				_Alignof                    ,			
 				_Atomic                     ,			
@@ -129,6 +112,34 @@
 			Type = "xcode.syntax.identifier.type";
 		};
 	},
+
+   {
+      Identifier = "xcode.lang.eero.attribute";
+      Syntax = {
+         StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+         Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+         Words = (
+            readwrite                  ,
+            readonly                   ,
+            strong                     ,
+            weak                       ,
+            copy                       ,
+            assign                     ,
+            retain                     ,
+            atomic                     ,
+            nonatomic                  ,
+            __autoreleasing             ,         
+            __block                     ,         
+            __bridge                    ,         
+            __bridge_retained           ,         
+            __bridge_transfer           ,         
+            __strong                    ,         
+            __unsafe_unretained         ,         
+            __weak                      ,         
+         );
+         Type = "xcode.syntax.attribute";
+      };
+   },
 
 	{
 		Identifier = "xcode.lang.eero.constant";
@@ -194,6 +205,7 @@
 				"xcode.lang.character",
 				"xcode.lang.eero.number",
 				"xcode.lang.eero.type",
+            "xcode.lang.eero.attribute",
             "xcode.lang.eero.protocol",
 				"xcode.lang.eero.constant",
             "xcode.lang.eero.variable",
@@ -225,6 +237,7 @@
 				"xcode.lang.character",
 				"xcode.lang.eero.number",
 				"xcode.lang.eero.type",
+            "xcode.lang.eero.attribute",
             "xcode.lang.eero.protocol",
 				"xcode.lang.eero.constant",
             "xcode.lang.eero.variable",
@@ -302,6 +315,7 @@
 			Tokenizer = "xcode.lang.eero.lexer";
 			Rules = (
 				"xcode.lang.eero.type",
+            "xcode.lang.eero.attribute",
 				"xcode.lang.eero.constant",
             "xcode.lang.eero.variable",
 				"xcode.lang.eero.identifier",
