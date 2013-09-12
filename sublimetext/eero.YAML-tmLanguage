@@ -39,7 +39,7 @@ patterns:
 - match: ":="
   name: storage.type.operator.eero
 
-- match: "\\b(auto|const|inline|register|restrict|static|volatile)\\b"
+- match: "\\b(auto|const|extern|inline|register|restrict|static|volatile)\\b"
   name: storage.modifier.eero
 
 - match: "\\b(__autoreleasing|__block|__bridge|__bridge_retained|__bridge_transfer|__strong|__unsafe_unretained|__weak)\\b"

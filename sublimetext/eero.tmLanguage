@@ -80,7 +80,7 @@
 		</dict>
 		<dict>
 			<key>match</key>
-			<string>\b(auto|const|inline|register|restrict|static|volatile)\b</string>
+			<string>\b(auto|const|extern|inline|register|restrict|static|volatile)\b</string>
 			<key>name</key>
 			<string>storage.modifier.eero</string>
 		</dict>
