@@ -194,8 +194,10 @@
 				"xcode.lang.character",
 				"xcode.lang.eero.number",
 				"xcode.lang.eero.type",
+            "xcode.lang.eero.protocol",
 				"xcode.lang.eero.constant",
             "xcode.lang.eero.variable",
+            "xcode.lang.eero.selector",
 				"xcode.lang.eero.identifier",
 			);
 			Type = "xcode.syntax.plain";
@@ -223,8 +225,10 @@
 				"xcode.lang.character",
 				"xcode.lang.eero.number",
 				"xcode.lang.eero.type",
+            "xcode.lang.eero.protocol",
 				"xcode.lang.eero.constant",
             "xcode.lang.eero.variable",
+            "xcode.lang.eero.selector",
 				"xcode.lang.eero.identifier",
 			);
 			Type = "xcode.syntax.plain";
@@ -329,7 +333,6 @@
 			);
 		};
 	},
-
 	{
 		Identifier = "xcode.lang.eero.number";
 		Syntax = {
@@ -344,6 +347,27 @@
 			Type = "xcode.syntax.number";
 		};
 	},
+   {
+     Identifier = "xcode.lang.eero.protocol";
+     Syntax = {
+         StartChars = "<";
+         Chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_<>, ";
+         Match = (
+             "<[a-zA-Z_]+[a-zA-Z0-9_,\\s]*>",
+         );
+         Type = "xcode.syntax.identifier.type";
+     };
+   },
+   {
+     Identifier = "xcode.lang.eero.selector";
+     Syntax = {
+         StartChars = "|";
+         Match = (
+             "\\|[a-zA-Z_]+[a-zA-Z0-9_:]*\\|(?=\\s*($|[,:)};]))",
+         );
+         Type = "xcode.syntax.identifier.constant";
+     };
+   },
 )
 
 
