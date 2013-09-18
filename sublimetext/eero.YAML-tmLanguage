@@ -93,6 +93,10 @@ patterns:
   end:   "'"
   name: string.quoted.single
 
+- begin: "`"
+  end:   "`"
+  name: comment.placeholder.eero
+
 - match: "^\\s*#(define|endif|else|elif|error|if|ifdef|ifndef|line|pragma|undef|warning)\\b"
   name: keyword.other.directive.eero meta.preprocessor.c
 
