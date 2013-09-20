@@ -1,7 +1,8 @@
-
 ## Support files for Sublime Text
 
 **eero.tmLanguage** is the Eero syntax definition file (for source code highlighting). Needs to be installed.
+
+**Comments (Eero).tmPreferences** is the Eero comment/uncomment enabler. Needs to be installed.
 
 **eero.YAML-tmLanguage** is the Eero syntax definition YAML *source* file. You don't need to mess with this
  unless you want to improve the syntax definitions.
