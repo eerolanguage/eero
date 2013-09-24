@@ -24,7 +24,7 @@ patterns:
 - match: "\\b(__attribute__|__has_attribute|_Pragma|typeof|__typeof__)\\b"
   name: keyword.operator.eero
 
-- match: "\\b(defs|encode|protocol|selector)\\s*(?=\\()"
+- match: "\\b(defs|encode|protocol)\\s*(?=\\()"
   name: keyword.operator.eero
 
 - match: "\\b(char|double|enum|float|int|long|short|signed|struct|union|unsigned|void)\\b\\s*\\**"
