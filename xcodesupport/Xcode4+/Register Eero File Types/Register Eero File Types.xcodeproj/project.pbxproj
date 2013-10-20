@@ -10,7 +10,6 @@
 		A135E46614FF26A2007789ED /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A135E46514FF26A2007789ED /* Cocoa.framework */; };
 		A135E47014FF26A2007789ED /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A135E46E14FF26A2007789ED /* InfoPlist.strings */; };
 		A135E47214FF26A2007789ED /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A135E47114FF26A2007789ED /* main.m */; };
-		A135E47614FF26A2007789ED /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = A135E47414FF26A2007789ED /* Credits.rtf */; };
 		A135E48314FF3D30007789ED /* eero-source_Icon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A135E48214FF3D30007789ED /* eero-source_Icon.icns */; };
 /* End PBXBuildFile section */
 
@@ -18,12 +17,10 @@
 		A135E46114FF26A2007789ED /* Register Eero File Types.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Register Eero File Types.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A135E46514FF26A2007789ED /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		A135E46814FF26A2007789ED /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
-		A135E46914FF26A2007789ED /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
 		A135E46A14FF26A2007789ED /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		A135E46D14FF26A2007789ED /* Register Eero File Types-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Register Eero File Types-Info.plist"; sourceTree = "<group>"; };
 		A135E46F14FF26A2007789ED /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A135E47114FF26A2007789ED /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		A135E47514FF26A2007789ED /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
 		A135E48214FF3D30007789ED /* eero-source_Icon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "eero-source_Icon.icns"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -69,7 +66,6 @@
 			isa = PBXGroup;
 			children = (
 				A135E46814FF26A2007789ED /* AppKit.framework */,
-				A135E46914FF26A2007789ED /* CoreData.framework */,
 				A135E46A14FF26A2007789ED /* Foundation.framework */,
 			);
 			name = "Other Frameworks";
@@ -78,6 +74,8 @@
 		A135E46B14FF26A2007789ED /* Register Eero File Types */ = {
 			isa = PBXGroup;
 			children = (
+				A135E47114FF26A2007789ED /* main.m */,
+				A135E48414FF3D3E007789ED /* Resources */,
 				A135E46C14FF26A2007789ED /* Supporting Files */,
 			);
 			path = "Register Eero File Types";
@@ -86,11 +84,8 @@
 		A135E46C14FF26A2007789ED /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				A135E48414FF3D3E007789ED /* Resources */,
 				A135E46D14FF26A2007789ED /* Register Eero File Types-Info.plist */,
 				A135E46E14FF26A2007789ED /* InfoPlist.strings */,
-				A135E47114FF26A2007789ED /* main.m */,
-				A135E47414FF26A2007789ED /* Credits.rtf */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -154,7 +149,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				A135E47014FF26A2007789ED /* InfoPlist.strings in Resources */,
-				A135E47614FF26A2007789ED /* Credits.rtf in Resources */,
 				A135E48314FF3D30007789ED /* eero-source_Icon.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -181,14 +175,6 @@
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
-		A135E47414FF26A2007789ED /* Credits.rtf */ = {
-			isa = PBXVariantGroup;
-			children = (
-				A135E47514FF26A2007789ED /* en */,
-			);
-			name = Credits.rtf;
-			sourceTree = "<group>";
-		};
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
@@ -212,7 +198,7 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
 			};
@@ -232,7 +218,7 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				SDKROOT = macosx;
 			};
 			name = Release;
