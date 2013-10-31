@@ -1,0 +1,604 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1136F5D1815A62400DC77C5 /* AXASourceCodeLanguage.m in Sources */ = {isa = PBXBuildFile; fileRef = A1136F5C1815A62400DC77C5 /* AXASourceCodeLanguage.m */; };
+		A1166444181DB86C0016089F /* AXATranslationUnitWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = A1166443181DB86C0016089F /* AXATranslationUnitWrapper.m */; };
+		A11E42AF18161E3200F5F156 /* AXALibclangCodeCompleter.m in Sources */ = {isa = PBXBuildFile; fileRef = A11E42AE18161E3200F5F156 /* AXALibclangCodeCompleter.m */; };
+		A134D09D1821EE4A00637BF7 /* Eero Xcode Plugin.xcplugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = A17FFB8E18134588005C720F /* Eero Xcode Plugin.xcplugin */; };
+		A14133A818221C9D00352031 /* AXAResolvedFilePath.m in Sources */ = {isa = PBXBuildFile; fileRef = A14133A618221BBE00352031 /* AXAResolvedFilePath.m */; };
+		A175EAED181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m in Sources */ = {isa = PBXBuildFile; fileRef = A175EAEC181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m */; };
+		A17C1F0418138560009C4DB4 /* Eero.pbfilespec in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0018138560009C4DB4 /* Eero.pbfilespec */; };
+		A17C1F0518138560009C4DB4 /* Eero.xcbuildrules in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0118138560009C4DB4 /* Eero.xcbuildrules */; };
+		A17C1F0618138560009C4DB4 /* Eero.xclangspec in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0218138560009C4DB4 /* Eero.xclangspec */; };
+		A17C1F0718138560009C4DB4 /* Eero.xcspec in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0318138560009C4DB4 /* Eero.xcspec */; };
+		A17FFB9C18134588005C720F /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A17FFB9A18134588005C720F /* InfoPlist.strings */; };
+		A18750331813828600740BA0 /* org.eerolanguage.compilers.clang.strings in Resources */ = {isa = PBXBuildFile; fileRef = A18750351813828600740BA0 /* org.eerolanguage.compilers.clang.strings */; };
+		A19696F11820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A19696F01820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m */; };
+		A1A147AC1814949D00612EE3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1A147AA1814949D00612EE3 /* InfoPlist.strings */; };
+		A1A147AE1814949D00612EE3 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A1A147AD1814949D00612EE3 /* main.m */; };
+		A1A147D31814955600612EE3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A17FFB9418134588005C720F /* Foundation.framework */; };
+		A1A147D41814955600612EE3 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A17FFB9418134588005C720F /* Foundation.framework */; };
+		A1A147D51814955900612EE3 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A17FFB9618134588005C720F /* AppKit.framework */; };
+		A1A147D61814955900612EE3 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A17FFB9618134588005C720F /* AppKit.framework */; };
+		A1A147DB1814969300612EE3 /* eero-source_Icon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A1A147DA1814969300612EE3 /* eero-source_Icon.icns */; };
+		A1A147E3181498E000612EE3 /* Register Eero File Types.app in CopyFiles */ = {isa = PBXBuildFile; fileRef = A1A147A01814949D00612EE3 /* Register Eero File Types.app */; };
+		A1A9CC64181EE3A600B5B70B /* AXACustomLanguageSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = A1A9CC63181EE3A600B5B70B /* AXACustomLanguageSupport.m */; };
+		A1A9CC67181EE3E200B5B70B /* EeroLanguageSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = A1A9CC66181EE3E200B5B70B /* EeroLanguageSupport.m */; };
+		A1B7321D18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B7321C18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.m */; };
+		A1D14F8918134B5D007637BA /* AXACustomLanguageSupportPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = A1D14F8818134B5D007637BA /* AXACustomLanguageSupportPlugin.m */; };
+		A1DADEFA1815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A1DADEF91815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m */; };
+		A1F1AFE6181353CC00AE05F0 /* AXASwizzling.c in Sources */ = {isa = PBXBuildFile; fileRef = A1F1AFE5181353CC00AE05F0 /* AXASwizzling.c */; };
+		A1FA19F2181C72CD0006C97F /* AXACodeCompleter.m in Sources */ = {isa = PBXBuildFile; fileRef = A1FA19F1181C72CD0006C97F /* AXACodeCompleter.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1A147DF1814981C00612EE3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A17FFB8618134588005C720F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1A1479F1814949D00612EE3;
+			remoteInfo = "Register Eero File Types";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A134D09C1821EE2800637BF7 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$USER_LIBRARY_DIR/Application Support/Developer/Shared/Xcode/Plug-ins";
+			dstSubfolderSpec = 0;
+			files = (
+				A134D09D1821EE4A00637BF7 /* Eero Xcode Plugin.xcplugin in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1A147E11814984400612EE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = ../Applications;
+			dstSubfolderSpec = 7;
+			files = (
+				A1A147E3181498E000612EE3 /* Register Eero File Types.app in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		A1136F5B1815A62400DC77C5 /* AXASourceCodeLanguage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXASourceCodeLanguage.h; sourceTree = "<group>"; };
+		A1136F5C1815A62400DC77C5 /* AXASourceCodeLanguage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXASourceCodeLanguage.m; sourceTree = "<group>"; };
+		A1166442181DB86C0016089F /* AXATranslationUnitWrapper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXATranslationUnitWrapper.h; sourceTree = "<group>"; };
+		A1166443181DB86C0016089F /* AXATranslationUnitWrapper.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXATranslationUnitWrapper.m; sourceTree = "<group>"; };
+		A11E42AD18161E3200F5F156 /* AXALibclangCodeCompleter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXALibclangCodeCompleter.h; sourceTree = "<group>"; };
+		A11E42AE18161E3200F5F156 /* AXALibclangCodeCompleter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXALibclangCodeCompleter.m; sourceTree = "<group>"; };
+		A11E42B01816219300F5F156 /* AXACodeCompleter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACodeCompleter.h; sourceTree = "<group>"; };
+		A121FA9D181E1E8600F06A0F /* AXACodeCompleter_Protected.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACodeCompleter_Protected.h; sourceTree = "<group>"; };
+		A14133A518221B6100352031 /* AXAResolvedFilePath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXAResolvedFilePath.h; sourceTree = "<group>"; };
+		A14133A618221BBE00352031 /* AXAResolvedFilePath.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXAResolvedFilePath.m; sourceTree = "<group>"; };
+		A175EAEB181DC55600CDF3B8 /* AXAProjectSettingsRetriever.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXAProjectSettingsRetriever.h; sourceTree = "<group>"; };
+		A175EAEC181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXAProjectSettingsRetriever.m; sourceTree = "<group>"; };
+		A17C1F0018138560009C4DB4 /* Eero.pbfilespec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.pbfilespec; path = Eero.pbfilespec; sourceTree = "<group>"; };
+		A17C1F0118138560009C4DB4 /* Eero.xcbuildrules */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xcbuildrules; path = Eero.xcbuildrules; sourceTree = "<group>"; };
+		A17C1F0218138560009C4DB4 /* Eero.xclangspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xclangspec; path = Eero.xclangspec; sourceTree = "<group>"; };
+		A17C1F0318138560009C4DB4 /* Eero.xcspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xcspec; path = Eero.xcspec; sourceTree = "<group>"; };
+		A17FFB8E18134588005C720F /* Eero Xcode Plugin.xcplugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Eero Xcode Plugin.xcplugin"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A17FFB9418134588005C720F /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		A17FFB9618134588005C720F /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		A17FFB9918134588005C720F /* Eero Xcode Plugin-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Eero Xcode Plugin-Info.plist"; sourceTree = "<group>"; };
+		A17FFB9B18134588005C720F /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A18750341813828600740BA0 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/org.eerolanguage.compilers.clang.strings; sourceTree = "<group>"; };
+		A19696F01820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSObject+XCCompilerSpecification_Swizzle.m"; sourceTree = "<group>"; };
+		A1A147A01814949D00612EE3 /* Register Eero File Types.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Register Eero File Types.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1A147A91814949D00612EE3 /* Register Eero File Types-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Register Eero File Types-Info.plist"; sourceTree = "<group>"; };
+		A1A147AB1814949D00612EE3 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A1A147AD1814949D00612EE3 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		A1A147DA1814969300612EE3 /* eero-source_Icon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "eero-source_Icon.icns"; sourceTree = "<group>"; };
+		A1A9CC62181EE3A600B5B70B /* AXACustomLanguageSupport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACustomLanguageSupport.h; sourceTree = "<group>"; };
+		A1A9CC63181EE3A600B5B70B /* AXACustomLanguageSupport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXACustomLanguageSupport.m; sourceTree = "<group>"; };
+		A1A9CC65181EE3E200B5B70B /* EeroLanguageSupport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EeroLanguageSupport.h; sourceTree = "<group>"; };
+		A1A9CC66181EE3E200B5B70B /* EeroLanguageSupport.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = EeroLanguageSupport.m; sourceTree = "<group>"; };
+		A1A9CC68181EE51400B5B70B /* AXACustomLanguageSupport_Protected.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACustomLanguageSupport_Protected.h; sourceTree = "<group>"; };
+		A1B7321B18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSObject+DVTSourceCodeLanguage_Swizzle.h"; sourceTree = "<group>"; };
+		A1B7321C18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSObject+DVTSourceCodeLanguage_Swizzle.m"; sourceTree = "<group>"; };
+		A1D14F8818134B5D007637BA /* AXACustomLanguageSupportPlugin.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXACustomLanguageSupportPlugin.m; sourceTree = "<group>"; };
+		A1D14F8A18134BC7007637BA /* AXACustomLanguageSupportPlugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACustomLanguageSupportPlugin.h; sourceTree = "<group>"; };
+		A1DADEF81815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSObject+IDEIndexCompletionStrategy_Swizzle.h"; sourceTree = "<group>"; };
+		A1DADEF91815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSObject+IDEIndexCompletionStrategy_Swizzle.m"; sourceTree = "<group>"; };
+		A1F1AFE5181353CC00AE05F0 /* AXASwizzling.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AXASwizzling.c; sourceTree = "<group>"; };
+		A1F1AFE8181354A000AE05F0 /* AXASwizzling.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AXASwizzling.h; sourceTree = "<group>"; };
+		A1FA19F1181C72CD0006C97F /* AXACodeCompleter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXACodeCompleter.m; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A17FFB8B18134588005C720F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1A147D31814955600612EE3 /* Foundation.framework in Frameworks */,
+				A1A147D51814955900612EE3 /* AppKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1A1479D1814949D00612EE3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1A147D41814955600612EE3 /* Foundation.framework in Frameworks */,
+				A1A147D61814955900612EE3 /* AppKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A17C1EFF18138560009C4DB4 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A17C1F0018138560009C4DB4 /* Eero.pbfilespec */,
+				A17C1F0118138560009C4DB4 /* Eero.xcbuildrules */,
+				A17C1F0218138560009C4DB4 /* Eero.xclangspec */,
+				A17C1F0318138560009C4DB4 /* Eero.xcspec */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A17FFB8518134588005C720F = {
+			isa = PBXGroup;
+			children = (
+				A17FFB9718134588005C720F /* Eero Xcode Plugin */,
+				A1A147A71814949D00612EE3 /* Register Eero File Types */,
+				A17FFB9018134588005C720F /* Frameworks */,
+				A17FFB8F18134588005C720F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A17FFB8F18134588005C720F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A17FFB8E18134588005C720F /* Eero Xcode Plugin.xcplugin */,
+				A1A147A01814949D00612EE3 /* Register Eero File Types.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A17FFB9018134588005C720F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A17FFB9418134588005C720F /* Foundation.framework */,
+				A17FFB9618134588005C720F /* AppKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A17FFB9718134588005C720F /* Eero Xcode Plugin */ = {
+			isa = PBXGroup;
+			children = (
+				A1D14F8A18134BC7007637BA /* AXACustomLanguageSupportPlugin.h */,
+				A1D14F8818134B5D007637BA /* AXACustomLanguageSupportPlugin.m */,
+				A1A9CC62181EE3A600B5B70B /* AXACustomLanguageSupport.h */,
+				A1A9CC68181EE51400B5B70B /* AXACustomLanguageSupport_Protected.h */,
+				A1A9CC63181EE3A600B5B70B /* AXACustomLanguageSupport.m */,
+				A1A9CC65181EE3E200B5B70B /* EeroLanguageSupport.h */,
+				A1A9CC66181EE3E200B5B70B /* EeroLanguageSupport.m */,
+				A1B7321B18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.h */,
+				A1B7321C18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.m */,
+				A1136F5B1815A62400DC77C5 /* AXASourceCodeLanguage.h */,
+				A1136F5C1815A62400DC77C5 /* AXASourceCodeLanguage.m */,
+				A175EAEB181DC55600CDF3B8 /* AXAProjectSettingsRetriever.h */,
+				A175EAEC181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m */,
+				A1DADEF81815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.h */,
+				A1DADEF91815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m */,
+				A11E42B01816219300F5F156 /* AXACodeCompleter.h */,
+				A121FA9D181E1E8600F06A0F /* AXACodeCompleter_Protected.h */,
+				A1FA19F1181C72CD0006C97F /* AXACodeCompleter.m */,
+				A11E42AD18161E3200F5F156 /* AXALibclangCodeCompleter.h */,
+				A11E42AE18161E3200F5F156 /* AXALibclangCodeCompleter.m */,
+				A1166442181DB86C0016089F /* AXATranslationUnitWrapper.h */,
+				A1166443181DB86C0016089F /* AXATranslationUnitWrapper.m */,
+				A19696F01820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m */,
+				A14133A518221B6100352031 /* AXAResolvedFilePath.h */,
+				A14133A618221BBE00352031 /* AXAResolvedFilePath.m */,
+				A1F1AFE8181354A000AE05F0 /* AXASwizzling.h */,
+				A1F1AFE5181353CC00AE05F0 /* AXASwizzling.c */,
+				A17C1EFF18138560009C4DB4 /* Resources */,
+				A17FFB9818134588005C720F /* Supporting Files */,
+			);
+			path = "Eero Xcode Plugin";
+			sourceTree = "<group>";
+		};
+		A17FFB9818134588005C720F /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				A17FFB9918134588005C720F /* Eero Xcode Plugin-Info.plist */,
+				A17FFB9A18134588005C720F /* InfoPlist.strings */,
+				A18750351813828600740BA0 /* org.eerolanguage.compilers.clang.strings */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		A1A147A71814949D00612EE3 /* Register Eero File Types */ = {
+			isa = PBXGroup;
+			children = (
+				A1A147D91814969300612EE3 /* Resources */,
+				A1A147A81814949D00612EE3 /* Supporting Files */,
+			);
+			path = "Register Eero File Types";
+			sourceTree = "<group>";
+		};
+		A1A147A81814949D00612EE3 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				A1A147A91814949D00612EE3 /* Register Eero File Types-Info.plist */,
+				A1A147AA1814949D00612EE3 /* InfoPlist.strings */,
+				A1A147AD1814949D00612EE3 /* main.m */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		A1A147D91814969300612EE3 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1A147DA1814969300612EE3 /* eero-source_Icon.icns */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A17FFB8D18134588005C720F /* Eero Xcode Plugin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A17FFBA018134588005C720F /* Build configuration list for PBXNativeTarget "Eero Xcode Plugin" */;
+			buildPhases = (
+				A1032CA41821ABDA008A789E /* ShellScript */,
+				A17FFB8A18134588005C720F /* Sources */,
+				A17FFB8B18134588005C720F /* Frameworks */,
+				A17FFB8C18134588005C720F /* Resources */,
+				A1A147E11814984400612EE3 /* CopyFiles */,
+				A1EE9E991821E3EA003EC0DD /* ShellScript */,
+				A134D09C1821EE2800637BF7 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1A147E01814981C00612EE3 /* PBXTargetDependency */,
+			);
+			name = "Eero Xcode Plugin";
+			productName = "Eero Xcode Plugin";
+			productReference = A17FFB8E18134588005C720F /* Eero Xcode Plugin.xcplugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+		A1A1479F1814949D00612EE3 /* Register Eero File Types */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1A147D11814949D00612EE3 /* Build configuration list for PBXNativeTarget "Register Eero File Types" */;
+			buildPhases = (
+				A1A1479C1814949D00612EE3 /* Sources */,
+				A1A1479D1814949D00612EE3 /* Frameworks */,
+				A1A1479E1814949D00612EE3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Register Eero File Types";
+			productName = "Register Eero File Types";
+			productReference = A1A147A01814949D00612EE3 /* Register Eero File Types.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A17FFB8618134588005C720F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+				ORGANIZATIONNAME = eerolanguage;
+			};
+			buildConfigurationList = A17FFB8918134588005C720F /* Build configuration list for PBXProject "Eero Xcode Plugin" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A17FFB8518134588005C720F;
+			productRefGroup = A17FFB8F18134588005C720F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A17FFB8D18134588005C720F /* Eero Xcode Plugin */,
+				A1A1479F1814949D00612EE3 /* Register Eero File Types */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A17FFB8C18134588005C720F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A17C1F0518138560009C4DB4 /* Eero.xcbuildrules in Resources */,
+				A17C1F0718138560009C4DB4 /* Eero.xcspec in Resources */,
+				A17C1F0418138560009C4DB4 /* Eero.pbfilespec in Resources */,
+				A17C1F0618138560009C4DB4 /* Eero.xclangspec in Resources */,
+				A17FFB9C18134588005C720F /* InfoPlist.strings in Resources */,
+				A18750331813828600740BA0 /* org.eerolanguage.compilers.clang.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1A1479E1814949D00612EE3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1A147AC1814949D00612EE3 /* InfoPlist.strings in Resources */,
+				A1A147DB1814969300612EE3 /* eero-source_Icon.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A1032CA41821ABDA008A789E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\nCLANG_DEV_INSTALLATION_ROOT=/usr/local/eerolanguage\nCLANG_PLUGIN_INSTALLATION_ROOT=usr\nCLANG_PLUGIN_INSTALLATION_PATH=$EXECUTABLE_FOLDER_PATH/../$CLANG_PLUGIN_INSTALLATION_ROOT\nLIBCLANG_REPLACEMENT_NAME=libclangPlugin.dylib\n\nmkdir -p \"$BUILT_PRODUCTS_DIR/$CLANG_PLUGIN_INSTALLATION_PATH/lib\"\n\ncp \"$CLANG_DEV_INSTALLATION_ROOT/lib/libclang.dylib\" \"$BUILT_PRODUCTS_DIR/$CLANG_PLUGIN_INSTALLATION_PATH/lib/$LIBCLANG_REPLACEMENT_NAME\"\n\ninstall_name_tool -id \"@loader_path/../$CLANG_PLUGIN_INSTALLATION_ROOT/lib/$LIBCLANG_REPLACEMENT_NAME\" \"$BUILT_PRODUCTS_DIR/$CLANG_PLUGIN_INSTALLATION_PATH/lib/$LIBCLANG_REPLACEMENT_NAME\"\n\n";
+		};
+		A1EE9E991821E3EA003EC0DD /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\nCLANG_DEV_INSTALLATION_ROOT=/usr/local/eerolanguage\nCLANG_PLUGIN_INSTALLATION_ROOT=usr\nCLANG_PLUGIN_INSTALLATION_PATH=$EXECUTABLE_FOLDER_PATH/../$CLANG_PLUGIN_INSTALLATION_ROOT\n\nmkdir -p \"$BUILT_PRODUCTS_DIR/$CLANG_PLUGIN_INSTALLATION_PATH/lib\"\n\ncp -R \"$CLANG_DEV_INSTALLATION_ROOT/lib/clang\" \"$BUILT_PRODUCTS_DIR/$CLANG_PLUGIN_INSTALLATION_PATH/lib/\"\n\nmkdir -p \"$BUILT_PRODUCTS_DIR/$CLANG_PLUGIN_INSTALLATION_PATH/bin\"\n\ncp \"$CLANG_DEV_INSTALLATION_ROOT/bin/clang\"* \"$BUILT_PRODUCTS_DIR/$CLANG_PLUGIN_INSTALLATION_PATH/bin/\"\n\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A17FFB8A18134588005C720F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1A9CC64181EE3A600B5B70B /* AXACustomLanguageSupport.m in Sources */,
+				A1A9CC67181EE3E200B5B70B /* EeroLanguageSupport.m in Sources */,
+				A175EAED181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m in Sources */,
+				A1FA19F2181C72CD0006C97F /* AXACodeCompleter.m in Sources */,
+				A1166444181DB86C0016089F /* AXATranslationUnitWrapper.m in Sources */,
+				A1D14F8918134B5D007637BA /* AXACustomLanguageSupportPlugin.m in Sources */,
+				A14133A818221C9D00352031 /* AXAResolvedFilePath.m in Sources */,
+				A1DADEFA1815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m in Sources */,
+				A11E42AF18161E3200F5F156 /* AXALibclangCodeCompleter.m in Sources */,
+				A1F1AFE6181353CC00AE05F0 /* AXASwizzling.c in Sources */,
+				A1136F5D1815A62400DC77C5 /* AXASourceCodeLanguage.m in Sources */,
+				A1B7321D18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.m in Sources */,
+				A19696F11820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1A1479C1814949D00612EE3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1A147AE1814949D00612EE3 /* main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1A147E01814981C00612EE3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1A1479F1814949D00612EE3 /* Register Eero File Types */;
+			targetProxy = A1A147DF1814981C00612EE3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		A17FFB9A18134588005C720F /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A17FFB9B18134588005C720F /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		A18750351813828600740BA0 /* org.eerolanguage.compilers.clang.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A18750341813828600740BA0 /* en */,
+			);
+			name = org.eerolanguage.compilers.clang.strings;
+			sourceTree = "<group>";
+		};
+		A1A147AA1814949D00612EE3 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A1A147AB1814949D00612EE3 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		A17FFB9E18134588005C720F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		A17FFB9F18134588005C720F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		A17FFBA118134588005C720F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "Eero Xcode Plugin/Eero Xcode Plugin-Info.plist";
+				LIBRARY_SEARCH_PATHS = $BUILT_PRODUCTS_DIR/$EXECUTABLE_FOLDER_PATH/../usr/lib;
+				OTHER_LDFLAGS = "-lclangPlugin";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = /usr/local/eerolanguage/include;
+				WRAPPER_EXTENSION = xcplugin;
+			};
+			name = Debug;
+		};
+		A17FFBA218134588005C720F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "Eero Xcode Plugin/Eero Xcode Plugin-Info.plist";
+				LIBRARY_SEARCH_PATHS = $BUILT_PRODUCTS_DIR/$EXECUTABLE_FOLDER_PATH/../usr/lib;
+				OTHER_LDFLAGS = "-lclangPlugin";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = /usr/local/eerolanguage/include;
+				WRAPPER_EXTENSION = xcplugin;
+			};
+			name = Release;
+		};
+		A1A147CD1814949D00612EE3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = "Register Eero File Types/Register Eero File Types-Info.plist";
+				INSTALL_PATH = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Debug;
+		};
+		A1A147CE1814949D00612EE3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "Register Eero File Types/Register Eero File Types-Info.plist";
+				INSTALL_PATH = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = app;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A17FFB8918134588005C720F /* Build configuration list for PBXProject "Eero Xcode Plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A17FFB9E18134588005C720F /* Debug */,
+				A17FFB9F18134588005C720F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A17FFBA018134588005C720F /* Build configuration list for PBXNativeTarget "Eero Xcode Plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A17FFBA118134588005C720F /* Debug */,
+				A17FFBA218134588005C720F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1A147D11814949D00612EE3 /* Build configuration list for PBXNativeTarget "Register Eero File Types" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1A147CD1814949D00612EE3 /* Debug */,
+				A1A147CE1814949D00612EE3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A17FFB8618134588005C720F /* Project object */;
+}

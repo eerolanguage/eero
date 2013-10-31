@@ -1,0 +1,386 @@
+(
+	{
+		Identifier = "xcode.lang.eero.identifier";
+		Syntax = {
+			StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+			Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+			Words = (
+				break                       ,			
+				case                        ,			
+				continue                    ,			
+				default                     ,			
+				do                          ,			
+				else                        ,			
+				for                         ,			
+				goto                        ,			
+				if                          ,			
+				return                      ,			
+				sizeof                      ,			
+				switch                      ,			
+				typedef                     ,			
+				while                       ,			
+				_Static_assert              ,			
+				__func__                    ,			
+				private                     ,
+				protected                   ,			
+				public                      ,			
+				throw                       ,			
+				try                         ,			
+				using                       ,			
+				compatibility_alias          ,			
+				defs                         ,			
+				encode                       ,			
+				end                          ,			
+				implementation               ,			
+				interface                    ,			
+				protocol                     ,			
+				class                        ,			
+				finally                      ,			
+				synchronized                 ,			
+				autoreleasepool              ,			
+				package                      ,			
+				required                     ,			
+				optional                     ,			
+				synthesize                   ,			
+				dynamic                      ,			
+				import                       ,
+				in                           ,
+				and                        ,
+				or                         ,
+				not                        ,
+				not_eq                     ,
+				bitand                     ,
+				bitor                      ,
+				compl                      ,
+				xor                        ,
+				and_eq                     ,
+				or_eq                      ,
+				xor_eq                     ,
+            typeof                     ,
+            __typeof__                 ,
+            __has_attribute             ,
+            _Pragma                     ,
+            __has_attribute             ,
+			);
+			Type = "xcode.syntax.keyword";
+			AltType = "xcode.syntax.identifier";
+		};
+	},
+
+	{
+		Identifier = "xcode.lang.eero.type";
+		Syntax = {
+			StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+			Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+			Words = (
+				auto                        ,			
+				char                        ,			
+				const                       ,			
+				double                      ,			
+				enum                        ,			
+				extern                      ,			
+				float                       ,			
+				inline                      ,
+				int                         ,			
+				long                        ,			
+				register                    ,			
+				restrict                    ,
+				short                       ,			
+				signed                      ,			
+				static                      ,			
+				struct                      ,			
+				union                       ,			
+				unsigned                    ,			
+				void                        ,			
+				volatile                    ,			
+				id                          ,
+				instancetype                ,
+				Protocol                    ,
+				SEL                         ,
+				BOOL                        ,
+				_Alignas                    ,			
+				_Alignof                    ,			
+				_Atomic                     ,			
+				_Bool                       ,
+				_Complex                    ,			
+				_Generic                    ,			
+				_Imaginary                  ,			
+            size_t                      ,         
+            wchar_t                     ,         
+			);
+			Type = "xcode.syntax.identifier.type";
+		};
+	},
+
+   {
+      Identifier = "xcode.lang.eero.attribute";
+      Syntax = {
+         StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+         Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+         Words = (
+            readwrite                  ,
+            readonly                   ,
+            strong                     ,
+            weak                       ,
+            copy                       ,
+            assign                     ,
+            retain                     ,
+            atomic                     ,
+            nonatomic                  ,
+            __autoreleasing             ,         
+            __block                     ,         
+            __bridge                    ,         
+            __bridge_retained           ,         
+            __bridge_transfer           ,         
+            __strong                    ,         
+            __unsafe_unretained         ,         
+            __weak                      ,         
+         );
+         Type = "xcode.syntax.attribute";
+      };
+   },
+
+	{
+		Identifier = "xcode.lang.eero.constant";
+		Syntax = {
+			StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+			Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+			Words = (
+				nil                        ,
+				Nil                        ,
+				YES                        ,
+				NO                         ,
+				__objc_yes                 ,			
+				__objc_no                  ,			
+            NULL                       ,
+            true                       ,
+            false                      ,
+			);
+			Type = "xcode.syntax.identifier.constant";
+		};
+	},
+
+   {
+      Identifier = "xcode.lang.eero.variable";
+      Syntax = {
+         StartChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_";
+         Chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+         Words = (
+            self                       ,
+            super                      ,
+         );
+         Type = "xcode.syntax.identifier.variable";
+      };
+   },
+
+	{
+		Identifier = "xcode.lang.eero";
+		Description = "Eero Coloring";
+		BasedOn = "xcode.lang.simpleColoring";
+		IncludeInMenu = YES;
+		Name = Eero;
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer";
+			IncludeRules = (
+				"xcode.lang.eero.class",
+				"xcode.lang.eero.function",
+				"xcode.lang.eero.block",
+				"xcode.lang.eero.bracketexpr",
+				"xcode.lang.eero.parenexpr",
+			);
+			Type = "xcode.syntax.plain";
+			"DirtyPreviousRightEdge" = YES;
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.lexer";
+		Syntax = {
+			"SourceScannerClassName" = DVTPythonScanner;
+			IncludeRules = (
+				"xcode.lang.c.preprocessor",
+				"xcode.lang.comment",
+				"xcode.lang.comment.singleline",
+				"xcode.lang.string",
+				"xcode.lang.character",
+				"xcode.lang.eero.number",
+				"xcode.lang.eero.type",
+            "xcode.lang.eero.attribute",
+            "xcode.lang.eero.protocol",
+				"xcode.lang.eero.constant",
+            "xcode.lang.eero.variable",
+            "xcode.lang.eero.selector",
+				"xcode.lang.eero.identifier",
+			);
+			Type = "xcode.syntax.plain";
+		};
+	},
+	{
+		Identifier = "xcode.lang.python.indent";
+		Syntax = {
+			Type = "xcode.syntax.plain";
+		};
+	},
+	{
+		Identifier = "xcode.lang.python.dedent";
+		Syntax = {
+			Type = "xcode.syntax.plain";
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.lexer.simple";
+		Syntax = {
+			IncludeRules = (
+				"xcode.lang.comment",
+				"xcode.lang.comment.singleline",
+				"xcode.lang.string",
+				"xcode.lang.character",
+				"xcode.lang.eero.number",
+				"xcode.lang.eero.type",
+            "xcode.lang.eero.attribute",
+            "xcode.lang.eero.protocol",
+				"xcode.lang.eero.constant",
+            "xcode.lang.eero.variable",
+            "xcode.lang.eero.selector",
+				"xcode.lang.eero.identifier",
+			);
+			Type = "xcode.syntax.plain";
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.class";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer";
+			Rules = (
+				"xcode.lang.eero.class.declarator",
+				"xcode.lang.eero.block",
+			);
+			Type = "xcode.syntax.definition.class";
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.class.declarator";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer";
+			Rules = (
+				class,
+				"xcode.lang.eero.name",
+				"xcode.lang.eero.parenexpr?",
+				":",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.function";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer";
+			Rules = (
+				"xcode.lang.eero.function.declarator",
+				"xcode.lang.eero.block",
+			);
+			Type = "xcode.syntax.definition.function";
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.function.declarator";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer";
+			Rules = (
+				def,
+				"xcode.lang.eero.name",
+				"xcode.lang.eero.parenexpr",
+				":",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.block";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer";
+			Start = "xcode.lang.python.indent";
+			End = "xcode.lang.python.dedent";
+			Foldable = YES;
+			Recursive = YES;
+			IncludeRules = (
+				"xcode.lang.eero.class",
+				"xcode.lang.eero.function",
+				"xcode.lang.eero.bracketexpr",
+				"xcode.lang.eero.parenexpr",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.name";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer";
+			Rules = (
+				"xcode.lang.eero.type",
+            "xcode.lang.eero.attribute",
+				"xcode.lang.eero.constant",
+            "xcode.lang.eero.variable",
+				"xcode.lang.eero.identifier",
+			);
+			Type = "xcode.syntax.name.partial";
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.parenexpr";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer.simple";
+			Start = "(";
+			End = ")";
+			Recursive = YES;
+			IncludeRules = (
+				"xcode.lang.eero.bracketexpr",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.bracketexpr";
+		Syntax = {
+			Tokenizer = "xcode.lang.eero.lexer.simple";
+			Start = "[";
+			End = "]";
+			Recursive = YES;
+			IncludeRules = (
+				"xcode.lang.eero.parenexpr",
+			);
+		};
+	},
+	{
+		Identifier = "xcode.lang.eero.number";
+		Syntax = {
+			"SourceScannerClassName" = DVTNumberScanner;
+			StartChars = "0123456789.";
+			Chars = "0123456789_+-.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			Match = (
+            "\\b[0-9]+[0-9_]*[.][0-9_]+([eE][+-]?[0-9_]+)?[Lf]?\\b",
+            "\\b[0-9]+[0-9_]*u?l?\\b",
+            "\\b0[xX][0-9a-fA-F_]+u?l?\\b",
+			);
+			Type = "xcode.syntax.number";
+		};
+	},
+   {
+     Identifier = "xcode.lang.eero.protocol";
+     Syntax = {
+         StartChars = "<";
+         Chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_<>, ";
+         Match = (
+             "<[a-zA-Z_]+[a-zA-Z0-9_,\\s]*>",
+         );
+         Type = "xcode.syntax.identifier.type";
+     };
+   },
+   {
+     Identifier = "xcode.lang.eero.selector";
+     Syntax = {
+         StartChars = "|";
+         Match = (
+             "\\|[a-zA-Z_]+[a-zA-Z0-9_:]*\\|(?=\\s*($|[,:)};]))",
+         );
+         Type = "xcode.syntax.identifier.constant";
+     };
+   },
+)
+
+
