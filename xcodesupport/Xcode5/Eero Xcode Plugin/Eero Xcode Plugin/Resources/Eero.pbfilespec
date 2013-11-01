@@ -1,14 +1,11 @@
 (
-	{
-		Identifier = "sourcecode.eero";
-		BasedOn = "sourcecode.c.objc";
-		Name = "Eero source files";
-    ComputerLanguage = eero;
-    Language = "xcode.lang.eero";
-		AppliesToBuildRules = yes;
-		GccDialectName = eero;
-    CanSetIncludeInIndex = YES;
-    IsScannedForIncludes = YES;
-		UTI = "org.eerolanguage.eero-source";
-	},
+  {
+    Identifier = sourcecode.eero;
+    BasedOn = sourcecode.c.objc;
+    Name = "Eero source files";
+    Extensions = (eero, ero);
+    AppliesToBuildRules = no;
+    GccDialectName = "eero";
+    UTI = "org.eerolanguage.eero-source"; 
+  },
 )
