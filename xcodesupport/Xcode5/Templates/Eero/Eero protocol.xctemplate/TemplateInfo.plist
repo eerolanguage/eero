@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>AllowedTypes</key>
+    <array>
+        <string>org.eerolanguage.eero-source</string>
+        <string>public.c-header</string>
+    </array>
+    <key>BuildableType</key>
+    <string>None</string>
+    <key>Description</key>
+    <string>An Eero protocol which conforms to the &lt;Object&gt; protocol.</string> 
+    <key>Kind</key>
+    <string>Xcode.IDEKit.TextSubstitutionFileTemplateKind</string>
+    <key>MainTemplateFile</key>
+    <string>___FILEBASENAME___.eeh</string>
+    <key>Options</key>
+    <array>
+        <dict>
+            <key>Description</key>
+            <string>The name of the protocol to create</string>
+            <key>Identifier</key>
+            <string>productName</string>
+            <key>Name</key>
+            <string>Protocol</string>
+            <key>NotPersisted</key>
+            <true/>
+            <key>Required</key>
+            <true/>
+            <key>Type</key>
+            <string>text</string>
+        </dict>
+    </array>
+    <key>Platforms</key>
+    <array>
+      <string>com.apple.platform.iphoneos</string>
+      <string>com.apple.platform.macosx</string>
+    </array>
+    <key>SortOrder</key>
+    <string>1</string>
+    <key>Summary</key>
+    <string>An Eero protocol</string>
+</dict>
+</plist>

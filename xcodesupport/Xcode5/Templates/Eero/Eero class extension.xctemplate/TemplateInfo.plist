@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>AllowedTypes</key>
+    <array>
+        <string>org.eerolanguage.eero-source</string>
+        <string>public.c-header</string>
+    </array>
+    <key>BuildableType</key>
+    <string>None</string>
+    <key>ChooserOnly</key>
+    <true/>
+    <key>Description</key>
+    <string>An Eero class extension header.</string> 
+    <key>Kind</key>
+    <string>Xcode.IDEKit.TextSubstitutionFileTemplateKind</string>
+    <key>MainTemplateFile</key>
+    <string>___FILEBASENAME___.eeh</string>
+    <key>Options</key>
+    <array>
+        <dict>
+            <key>Default</key>
+            <string>Protected</string>
+            <key>Description</key>
+            <string>The name of the class extension to create</string>
+            <key>Identifier</key>
+            <string>extensionName</string>
+            <key>Name</key>
+            <string>Extension Name</string>
+            <key>NotPersisted</key>
+            <true/>
+            <key>Required</key>
+            <true/>
+            <key>Type</key>
+            <string>text</string>
+        </dict>
+        <dict>
+            <key>Default</key>
+            <string></string>
+            <key>Description</key>
+            <string>Which class to add an extension for</string>
+            <key>Identifier</key>
+            <string>extensionClass</string>
+            <key>Name</key>
+            <string>Class</string>
+            <key>NotPersisted</key>
+            <true/>
+            <key>Required</key>
+            <true/>
+            <key>Type</key>
+            <string>text</string>
+        </dict>
+        <dict>
+            <key>Default</key>
+            <string>___VARIABLE_extensionClass:identifier_______VARIABLE_extensionName:identifier___</string>
+            <key>Identifier</key>
+            <string>productName</string>
+            <key>Type</key>
+            <string>static</string>
+        </dict>
+    </array>
+    <key>Platforms</key>
+    <array>
+      <string>com.apple.platform.iphoneos</string>
+      <string>com.apple.platform.macosx</string>
+    </array>
+    <key>Summary</key>
+    <string>An Eero class extension</string>
+</dict>
+</plist>
