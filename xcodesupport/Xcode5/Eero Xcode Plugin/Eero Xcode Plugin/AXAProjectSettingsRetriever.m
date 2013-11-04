@@ -41,7 +41,7 @@
   - (id) targetsForFileReference: (id) fileReference justNative: (BOOL) native;
 
   // PBXReference
-  - (NSString*) absolutePath;
+  - (NSString*) resolvedAbsolutePath;
 
   // Xcode3FileReference
   - (id) reference;
@@ -122,7 +122,7 @@
         NSDictionary* projectSettings = [self activeBuildSettingsForContainer: project];
         NSDictionary* targetSettings  = [self activeBuildSettingsForContainer: target];
         if (projectSettings && targetSettings) {
-          options = [self relevantCompilerOptionsForFile: [fileReference absolutePath]
+          options = [self relevantCompilerOptionsForFile: [fileReference resolvedAbsolutePath]
                                            settingsArray: @[projectSettings, targetSettings]];
         }
       }
