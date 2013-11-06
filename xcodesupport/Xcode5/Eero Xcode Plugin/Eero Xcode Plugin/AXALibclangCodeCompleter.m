@@ -105,7 +105,7 @@
       struct CXUnsavedFile unsavedFile = {
           .Filename = filename,
           .Contents = [text UTF8String],
-          .Length   = [text length]
+          .Length   = [text length] + 1 // include terminating null char
       };
 
       CXTranslationUnit translationUnit;
