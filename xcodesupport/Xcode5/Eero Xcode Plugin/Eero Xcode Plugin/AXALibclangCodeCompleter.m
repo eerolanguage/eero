@@ -147,9 +147,12 @@
   //------------------------------------------------------------------------------------------------
     for (unsigned i = 0; i < clang_codeCompleteGetNumDiagnostics(results); i++) {
       CXDiagnostic diag = clang_codeCompleteGetDiagnostic(results, i);
-      CXString spelling = clang_getDiagnosticSpelling(diag);
-      NSLog(@"************ ERROR: %s ************", clang_getCString(spelling));
-      clang_disposeString(spelling);
+      CXString diagString = clang_formatDiagnostic(diag,
+                                                   CXDiagnostic_DisplaySourceLocation |
+                                                   CXDiagnostic_DisplayColumn |
+                                                   CXDiagnostic_DisplaySourceRanges);
+      NSLog(@"%@: %s", [self className], clang_getCString(diagString));
+      clang_disposeString(diagString);
       clang_disposeDiagnostic(diag);
     }
   }
