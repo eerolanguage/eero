@@ -116,8 +116,14 @@
                                                       args, numOfArgs,
                                                       &unsavedFile, numOfUnsavedFiles,
                                                       CXTranslationUnit_Incomplete |
+                                                      CXTranslationUnit_PrecompiledPreamble |
                                                       CXTranslationUnit_CacheCompletionResults);
         if (translationUnit) {
+          // This extra reparse is apparently needed for the auto-creation of the PCH files,
+          // which is a speed optimization for our completions.
+          clang_reparseTranslationUnit(translationUnit,
+                                       numOfUnsavedFiles, &unsavedFile,
+                                       clang_defaultReparseOptions(translationUnit));
           _translationUnits[filenameString] =
               [[AXATranslationUnitWrapper alloc] initWithTranslationUnit: translationUnit];
         }
