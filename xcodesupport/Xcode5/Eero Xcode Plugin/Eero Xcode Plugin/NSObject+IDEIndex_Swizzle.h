@@ -1,5 +1,5 @@
 //
-//  AXACodeCompleter.h
+//  NSObject+IDEIndex_Swizzle.h
 //
 //  Developed by: Andreas (Andy) Arvanitis
 //                The Eero Programming Language
@@ -32,36 +32,6 @@
 //
 #import <Foundation/Foundation.h>
 
-@protocol AXACodeCompleter
-
-  @required
-
-  - (id) createItemOfType: (NSString*) itemTypeIdentifier
-              displayText: (NSString*) displayText
-            insertionText: (NSString*) insertionText
-               resultType: (NSString*) resultTypeText
-                 priority: (NSUInteger) priority
-                 disabled: (BOOL) disabled;
-
-  @optional
-
-  // Note: Convention for this method is lines and columns start at 0
-  //
-  - (BOOL) addCodeCompleteItemsToArray: (NSMutableArray*) items
-                   usingSourceCodeText: (NSString*) text
-                                  line: (NSUInteger) line
-                                column: (NSUInteger) column
-                       compilerOptions: (NSArray*) options;
-
-  - (NSDictionary*) definitionOfSymbolAtLine: (NSUInteger) line
-                                      column: (NSUInteger) column
-                             compilerOptions: (NSArray*) options;
-
-  - (void)clearCaches;
+@interface NSObject (IDEIndex_Swizzle)
 
 @end
-
-
-@interface AXACodeCompleter : NSObject <AXACodeCompleter>
-@end
-

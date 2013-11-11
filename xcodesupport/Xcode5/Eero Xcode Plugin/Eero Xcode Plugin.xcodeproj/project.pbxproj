@@ -30,6 +30,7 @@
 		A1B7321D18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A1B7321C18137D56001EDE05 /* NSObject+DVTSourceCodeLanguage_Swizzle.m */; };
 		A1D14F8918134B5D007637BA /* AXACustomLanguageSupportPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = A1D14F8818134B5D007637BA /* AXACustomLanguageSupportPlugin.m */; };
 		A1DADEFA1815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A1DADEF91815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m */; };
+		A1E4C4C31830B4C10002F589 /* NSObject+IDEIndex_Swizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A1E4C4C21830B4C10002F589 /* NSObject+IDEIndex_Swizzle.m */; };
 		A1F1AFE6181353CC00AE05F0 /* AXASwizzling.c in Sources */ = {isa = PBXBuildFile; fileRef = A1F1AFE5181353CC00AE05F0 /* AXASwizzling.c */; };
 		A1FA19F2181C72CD0006C97F /* AXACodeCompleter.m in Sources */ = {isa = PBXBuildFile; fileRef = A1FA19F1181C72CD0006C97F /* AXACodeCompleter.m */; settings = {COMPILER_FLAGS = "-fno-objc-arc"; }; };
 /* End PBXBuildFile section */
@@ -103,6 +104,8 @@
 		A1D14F8A18134BC7007637BA /* AXACustomLanguageSupportPlugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACustomLanguageSupportPlugin.h; sourceTree = "<group>"; };
 		A1DADEF81815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSObject+IDEIndexCompletionStrategy_Swizzle.h"; sourceTree = "<group>"; };
 		A1DADEF91815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSObject+IDEIndexCompletionStrategy_Swizzle.m"; sourceTree = "<group>"; };
+		A1E4C4C11830B4C10002F589 /* NSObject+IDEIndex_Swizzle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "NSObject+IDEIndex_Swizzle.h"; sourceTree = "<group>"; };
+		A1E4C4C21830B4C10002F589 /* NSObject+IDEIndex_Swizzle.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "NSObject+IDEIndex_Swizzle.m"; sourceTree = "<group>"; };
 		A1F1AFE5181353CC00AE05F0 /* AXASwizzling.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = AXASwizzling.c; sourceTree = "<group>"; };
 		A1F1AFE8181354A000AE05F0 /* AXASwizzling.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AXASwizzling.h; sourceTree = "<group>"; };
 		A1FA19F1181C72CD0006C97F /* AXACodeCompleter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXACodeCompleter.m; sourceTree = "<group>"; };
@@ -185,6 +188,8 @@
 				A175EAEC181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m */,
 				A1DADEF81815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.h */,
 				A1DADEF91815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m */,
+				A1E4C4C11830B4C10002F589 /* NSObject+IDEIndex_Swizzle.h */,
+				A1E4C4C21830B4C10002F589 /* NSObject+IDEIndex_Swizzle.m */,
 				A11E42B01816219300F5F156 /* AXACodeCompleter.h */,
 				A121FA9D181E1E8600F06A0F /* AXACodeCompleter_Protected.h */,
 				A1FA19F1181C72CD0006C97F /* AXACodeCompleter.m */,
@@ -365,6 +370,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1E4C4C31830B4C10002F589 /* NSObject+IDEIndex_Swizzle.m in Sources */,
 				A1A9CC64181EE3A600B5B70B /* AXACustomLanguageSupport.m in Sources */,
 				A1A9CC67181EE3E200B5B70B /* EeroLanguageSupport.m in Sources */,
 				A175EAED181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m in Sources */,
