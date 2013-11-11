@@ -11,12 +11,9 @@
 		A1166444181DB86C0016089F /* AXATranslationUnitWrapper.m in Sources */ = {isa = PBXBuildFile; fileRef = A1166443181DB86C0016089F /* AXATranslationUnitWrapper.m */; };
 		A11E42AF18161E3200F5F156 /* AXALibclangCodeCompleter.m in Sources */ = {isa = PBXBuildFile; fileRef = A11E42AE18161E3200F5F156 /* AXALibclangCodeCompleter.m */; };
 		A134D09D1821EE4A00637BF7 /* Eero Xcode Plugin.xcplugin in CopyFiles */ = {isa = PBXBuildFile; fileRef = A17FFB8E18134588005C720F /* Eero Xcode Plugin.xcplugin */; };
-		A14133A818221C9D00352031 /* AXAResolvedFilePath.m in Sources */ = {isa = PBXBuildFile; fileRef = A14133A618221BBE00352031 /* AXAResolvedFilePath.m */; };
 		A175EAED181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m in Sources */ = {isa = PBXBuildFile; fileRef = A175EAEC181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m */; };
 		A17C1F0418138560009C4DB4 /* Eero.pbfilespec in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0018138560009C4DB4 /* Eero.pbfilespec */; };
-		A17C1F0518138560009C4DB4 /* Eero.xcbuildrules in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0118138560009C4DB4 /* Eero.xcbuildrules */; };
 		A17C1F0618138560009C4DB4 /* Eero.xclangspec in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0218138560009C4DB4 /* Eero.xclangspec */; };
-		A17C1F0718138560009C4DB4 /* Eero.xcspec in Resources */ = {isa = PBXBuildFile; fileRef = A17C1F0318138560009C4DB4 /* Eero.xcspec */; };
 		A17FFB9C18134588005C720F /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A17FFB9A18134588005C720F /* InfoPlist.strings */; };
 		A18750331813828600740BA0 /* org.eerolanguage.compilers.clang.strings in Resources */ = {isa = PBXBuildFile; fileRef = A18750351813828600740BA0 /* org.eerolanguage.compilers.clang.strings */; };
 		A19696F11820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m in Sources */ = {isa = PBXBuildFile; fileRef = A19696F01820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m */; };
@@ -79,14 +76,10 @@
 		A11E42AE18161E3200F5F156 /* AXALibclangCodeCompleter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXALibclangCodeCompleter.m; sourceTree = "<group>"; };
 		A11E42B01816219300F5F156 /* AXACodeCompleter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACodeCompleter.h; sourceTree = "<group>"; };
 		A121FA9D181E1E8600F06A0F /* AXACodeCompleter_Protected.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXACodeCompleter_Protected.h; sourceTree = "<group>"; };
-		A14133A518221B6100352031 /* AXAResolvedFilePath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXAResolvedFilePath.h; sourceTree = "<group>"; };
-		A14133A618221BBE00352031 /* AXAResolvedFilePath.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXAResolvedFilePath.m; sourceTree = "<group>"; };
 		A175EAEB181DC55600CDF3B8 /* AXAProjectSettingsRetriever.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AXAProjectSettingsRetriever.h; sourceTree = "<group>"; };
 		A175EAEC181DC55600CDF3B8 /* AXAProjectSettingsRetriever.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AXAProjectSettingsRetriever.m; sourceTree = "<group>"; };
 		A17C1F0018138560009C4DB4 /* Eero.pbfilespec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.pbfilespec; path = Eero.pbfilespec; sourceTree = "<group>"; };
-		A17C1F0118138560009C4DB4 /* Eero.xcbuildrules */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xcbuildrules; path = Eero.xcbuildrules; sourceTree = "<group>"; };
 		A17C1F0218138560009C4DB4 /* Eero.xclangspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xclangspec; path = Eero.xclangspec; sourceTree = "<group>"; };
-		A17C1F0318138560009C4DB4 /* Eero.xcspec */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xcspec; path = Eero.xcspec; sourceTree = "<group>"; };
 		A17FFB8E18134588005C720F /* Eero Xcode Plugin.xcplugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Eero Xcode Plugin.xcplugin"; sourceTree = BUILT_PRODUCTS_DIR; };
 		A17FFB9418134588005C720F /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		A17FFB9618134588005C720F /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -141,9 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				A17C1F0018138560009C4DB4 /* Eero.pbfilespec */,
-				A17C1F0118138560009C4DB4 /* Eero.xcbuildrules */,
 				A17C1F0218138560009C4DB4 /* Eero.xclangspec */,
-				A17C1F0318138560009C4DB4 /* Eero.xcspec */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -202,8 +193,6 @@
 				A1166442181DB86C0016089F /* AXATranslationUnitWrapper.h */,
 				A1166443181DB86C0016089F /* AXATranslationUnitWrapper.m */,
 				A19696F01820337600F504F0 /* NSObject+XCCompilerSpecification_Swizzle.m */,
-				A14133A518221B6100352031 /* AXAResolvedFilePath.h */,
-				A14133A618221BBE00352031 /* AXAResolvedFilePath.m */,
 				A1F1AFE8181354A000AE05F0 /* AXASwizzling.h */,
 				A1F1AFE5181353CC00AE05F0 /* AXASwizzling.c */,
 				A17C1EFF18138560009C4DB4 /* Resources */,
@@ -324,8 +313,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A17C1F0518138560009C4DB4 /* Eero.xcbuildrules in Resources */,
-				A17C1F0718138560009C4DB4 /* Eero.xcspec in Resources */,
 				A17C1F0418138560009C4DB4 /* Eero.pbfilespec in Resources */,
 				A17C1F0618138560009C4DB4 /* Eero.xclangspec in Resources */,
 				A17FFB9C18134588005C720F /* InfoPlist.strings in Resources */,
@@ -384,7 +371,6 @@
 				A1FA19F2181C72CD0006C97F /* AXACodeCompleter.m in Sources */,
 				A1166444181DB86C0016089F /* AXATranslationUnitWrapper.m in Sources */,
 				A1D14F8918134B5D007637BA /* AXACustomLanguageSupportPlugin.m in Sources */,
-				A14133A818221C9D00352031 /* AXAResolvedFilePath.m in Sources */,
 				A1DADEFA1815C4C000964881 /* NSObject+IDEIndexCompletionStrategy_Swizzle.m in Sources */,
 				A11E42AF18161E3200F5F156 /* AXALibclangCodeCompleter.m in Sources */,
 				A1F1AFE6181353CC00AE05F0 /* AXASwizzling.c in Sources */,

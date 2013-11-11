@@ -31,7 +31,7 @@
 //  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 #import <Foundation/Foundation.h>
-#import "AXAResolvedFilePath.h"
+#import "AXACustomLanguageSupportPlugin.h"
 #import "AXASwizzling.h"
 
 @interface NSObject (XCCompilerSpecification_Swizzle)
@@ -44,10 +44,6 @@
   // XCSpecification
   + (id) registeredSpecifications;
   + (id) specificationForIdentifier: (id) identifier;
-
-  // PBXBuildRule
-  + (id) systemBuildRules;
-  - (id) compilerSpecificationIdentifier;
 
   // XCCompilerSpecification
   - (id) executablePathWithMacroExpansionScope:(id) scope forLanguageDialect: (id) dialect;
@@ -64,16 +60,11 @@
 //==================================================================================================
 
   static Class FileType = nil;
-  static Class BuildRule = nil;
-  static Class CompilerSpecification = nil;
 
   //------------------------------------------------------------------------------------------------
   + (void) load {
   //------------------------------------------------------------------------------------------------
     FileType = NSClassFromString(@"PBXFileType");
-    BuildRule = NSClassFromString(@"PBXBuildRule");
-    CompilerSpecification = NSClassFromString(@"XCCompilerSpecification");
-
     Class CompilerSpecificationClang = NSClassFromString(@"XCCompilerSpecificationClang");
 
     AXAMethodSwizzle(CompilerSpecificationClang,
@@ -91,9 +82,7 @@
   //--------------------------------------------------------------------------------------------------
     NSString* path = nil;
 
-    if ([[(id)self name] hasPrefix: @"Static Analyzer"] &&
-        [(id)self fileTypeForGccLanguageDialect: dialect] == nil) {
-
+    if ([(id)self fileTypeForGccLanguageDialect: dialect] == nil) {
       static NSMutableDictionary* compilerInfoCache = nil;
 
       if (compilerInfoCache == nil) {
@@ -105,17 +94,11 @@
           if ([fileType isSourceCode]) {
             NSString* fileTypeDialect = [fileType stringForKey: @"GccDialectName"];
             if (fileTypeDialect && [fileTypeDialect isEqual: dialect]) {
-              NSArray* systemBuildRules = [BuildRule systemBuildRules];
-              for (id buildRule in systemBuildRules) {
-                if ([[buildRule fileType] isEqual: fileType]) {
-                  NSString* compilerSpecIdentifier = [buildRule compilerSpecificationIdentifier];
-                  id compilerSpec =
-                      [CompilerSpecification specificationForIdentifier: compilerSpecIdentifier];
-                  path = [compilerSpec executablePath];
-                  compilerInfoCache[dialect] = AXAResolvedFilePath(path);
-                  break;
-                }
-              }
+              NSString* UTI = [fileType stringForKey: @"UTI"];
+              AXACustomLanguageSupport* customLanguage =
+                  [AXACustomLanguageSupportPlugin.sharedPlugin languageForFileTypeUTI: UTI];
+              compilerInfoCache[dialect] = customLanguage.executablePath;
+              break;
             }
           }
         }

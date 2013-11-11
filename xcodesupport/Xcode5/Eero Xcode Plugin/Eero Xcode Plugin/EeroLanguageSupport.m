@@ -39,6 +39,7 @@
 //==================================================================================================
   {
   AXALibclangCodeCompleter* _codeCompleter;
+  NSString* _executablePath;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -46,9 +47,14 @@
   //------------------------------------------------------------------------------------------------
     if (self = [super initWithBundle: bundle]) {
 
-      setenv("PLUGIN_PRIVATE_CLANG_LOCATION",
-             strdup([[bundle.resourcePath stringByAppendingPathComponent:@".."] UTF8String]),
-             YES);
+      NSMutableArray* pathComponents = [NSMutableArray arrayWithObject: bundle.resourcePath];
+
+      [pathComponents addObject: @".."];
+      [pathComponents addObject: @"usr"];
+      [pathComponents addObject: @"bin"];
+      [pathComponents addObject: @"clang"];
+
+      _executablePath = [[NSString pathWithComponents: pathComponents] stringByStandardizingPath];
 
       [self subscribeToNotifications];
     }
@@ -89,6 +95,12 @@
   - (AXACodeCompleter*) codeCompleter {
   //------------------------------------------------------------------------------------------------
     return _codeCompleter;
+  }
+
+  //------------------------------------------------------------------------------------------------
+  - (NSString*) executablePath {
+  //------------------------------------------------------------------------------------------------
+    return _executablePath;
   }
 
   //------------------------------------------------------------------------------------------------

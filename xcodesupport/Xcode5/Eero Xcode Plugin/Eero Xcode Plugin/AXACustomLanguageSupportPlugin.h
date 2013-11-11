@@ -39,6 +39,7 @@
   + (instancetype) sharedPlugin;
 
   - (AXACustomLanguageSupport*) languageForFileDataType: (id) fileDataType;
+  - (AXACustomLanguageSupport*) languageForFileTypeUTI: (NSString*) UTI;
   - (AXACustomLanguageSupport*) languageForSourceCodeLanguage: (id) sourceCodeLanguage;
 
   @property (readonly) AXAProjectSettingsRetriever* projectSettings;

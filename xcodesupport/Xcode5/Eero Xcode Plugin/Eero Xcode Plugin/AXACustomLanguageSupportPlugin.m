@@ -92,6 +92,17 @@
   }
 
   //------------------------------------------------------------------------------------------------
+  - (AXACustomLanguageSupport*) languageForFileTypeUTI: (NSString*) UTI {
+  //------------------------------------------------------------------------------------------------
+    for (AXACustomLanguageSupport* language in _customLanguages) {
+      if ([UTI isEqual: [language.fileDataType identifier]]) {
+        return language;
+      }
+    }
+    return nil;
+  }
+
+  //------------------------------------------------------------------------------------------------
   - (AXACustomLanguageSupport*) languageForSourceCodeLanguage: (id) sourceCodeLanguage {
   //------------------------------------------------------------------------------------------------
     for (AXACustomLanguageSupport* language in _customLanguages) {

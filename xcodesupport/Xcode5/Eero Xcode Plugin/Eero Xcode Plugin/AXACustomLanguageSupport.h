@@ -40,6 +40,7 @@
   @property (readonly) id fileDataType;
   @property (readonly) id sourceCodeLanguage;
   @property (readonly) AXACodeCompleter* codeCompleter;
+  @property (readonly) NSString* executablePath;
 
 @end
 
