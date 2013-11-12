@@ -35,6 +35,7 @@
 @interface AXAProjectSettingsRetriever : NSObject
 
   - (NSArray*) compilerOptionsForDocument: (id) document;
+  - (NSArray*) compilerOptionsForFileReference: (id) fileReference;
 
   - (void) clearCaches;
 

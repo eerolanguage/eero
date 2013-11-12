@@ -52,6 +52,9 @@
       _translationUnits = [NSMutableDictionary new];
 
       NSLog(@"%@: clang version: %s", [self className], clang_getCString(clang_getClangVersion()));
+
+      // The clang index can be reused
+      _index = clang_createIndex(0, 0);
     }
     return self;
   }
@@ -77,6 +80,39 @@
   }
 
   //------------------------------------------------------------------------------------------------
+  - (CXTranslationUnit) translationUnitForFileName: (NSString*) filename
+                                       unsavedFile: (struct CXUnsavedFile*) unsavedFile
+                                              args: (const char*[]) args
+                                         argsCount: (int) numOfArgs {
+  //------------------------------------------------------------------------------------------------
+    CXTranslationUnit translationUnit;
+    AXATranslationUnitWrapper* translationUnitWrapper = _translationUnits[filename];
+    if (translationUnitWrapper == nil) {
+      const unsigned numOfUnsavedFiles = unsavedFile ? 1 : 0;
+      translationUnit = clang_parseTranslationUnit(_index,
+                                                    NULL,
+                                                    args, numOfArgs,
+                                                    unsavedFile, numOfUnsavedFiles,
+                                                    CXTranslationUnit_Incomplete |
+                                                    CXTranslationUnit_PrecompiledPreamble |
+                                                    CXTranslationUnit_CacheCompletionResults);
+      if (translationUnit) {
+        // This extra reparse is apparently needed for the auto-creation of the PCH files,
+        // which is a speed optimization for our completions.
+        clang_reparseTranslationUnit(translationUnit,
+                                     numOfUnsavedFiles, unsavedFile,
+                                     clang_defaultReparseOptions(translationUnit));
+        _translationUnits[filename] =
+            [[AXATranslationUnitWrapper alloc] initWithTranslationUnit: translationUnit];
+      }
+    } else {
+      translationUnit = [translationUnitWrapper translationUnit];
+    }
+
+    return translationUnit;
+  }
+
+  //------------------------------------------------------------------------------------------------
   - (BOOL) addCodeCompleteItemsToArray: (NSMutableArray*) items
                    usingSourceCodeText: (NSString*) text
                                   line: (NSUInteger) line
@@ -85,12 +121,7 @@
   //------------------------------------------------------------------------------------------------
     const NSUInteger initialItemsCount = items.count;
 
-    // The clang index can be reused
-    if (_index == NULL) {
-      _index = clang_createIndex(0, 0);
-    }
-
-    if (_index && options.count > 0) { // Note: options[0] is always the input filename
+    if (options.count > 0) { // Note: options[0] is always the input filename
       NSString* filenameString = options[0];
 
       // Convert options to clang compiler arguments
@@ -108,29 +139,10 @@
           .Length   = [text length] + 1 // include terminating null char
       };
 
-      CXTranslationUnit translationUnit;
-      AXATranslationUnitWrapper* translationUnitWrapper = _translationUnits[filenameString];
-      if (translationUnitWrapper == nil) {
-        translationUnit = clang_parseTranslationUnit(_index,
-                                                      NULL,
-                                                      args, numOfArgs,
-                                                      &unsavedFile, numOfUnsavedFiles,
-                                                      CXTranslationUnit_Incomplete |
-                                                      CXTranslationUnit_PrecompiledPreamble |
-                                                      CXTranslationUnit_CacheCompletionResults);
-        if (translationUnit) {
-          // This extra reparse is apparently needed for the auto-creation of the PCH files,
-          // which is a speed optimization for our completions.
-          clang_reparseTranslationUnit(translationUnit,
-                                       numOfUnsavedFiles, &unsavedFile,
-                                       clang_defaultReparseOptions(translationUnit));
-          _translationUnits[filenameString] =
-              [[AXATranslationUnitWrapper alloc] initWithTranslationUnit: translationUnit];
-        }
-      } else {
-        translationUnit = [translationUnitWrapper translationUnit];
-      }
-
+      CXTranslationUnit translationUnit = [self translationUnitForFileName: filenameString
+                                                               unsavedFile: &unsavedFile
+                                                                      args: args
+                                                                 argsCount: numOfArgs];
       CXCodeCompleteResults* results =
           clang_codeCompleteAt(translationUnit,
                                filename,
@@ -558,6 +570,15 @@
     }
     return name;
   }
+
+  //------------------------------------------------------------------------------------------------
+  - (NSDictionary*) definitionOfSymbolAtLine: (NSUInteger) line
+                                      column: (NSUInteger) column
+                             compilerOptions: (NSArray*) options {
+  //------------------------------------------------------------------------------------------------
+    return nil;
+  }
+
 
 @end
 

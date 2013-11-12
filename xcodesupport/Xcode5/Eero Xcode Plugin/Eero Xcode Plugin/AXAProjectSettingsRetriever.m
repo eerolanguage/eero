@@ -72,7 +72,7 @@
 //==================================================================================================
   {
   Class Project;
-  NSMapTable* _compilerOptionsForDocuments;
+  NSMutableDictionary* _compilerOptionsForFilePath;
   }
 
   //------------------------------------------------------------------------------------------------
@@ -80,7 +80,7 @@
   //------------------------------------------------------------------------------------------------
     if (self = [super init]) {
       Project = NSClassFromString(@"PBXProject");
-      _compilerOptionsForDocuments = [NSMapTable weakToStrongObjectsMapTable];
+      _compilerOptionsForFilePath = [NSMutableDictionary new];
     }
     return self;
   }
@@ -94,17 +94,24 @@
   //------------------------------------------------------------------------------------------------
   - (void)clearCaches {
   //------------------------------------------------------------------------------------------------
-    [_compilerOptionsForDocuments removeAllObjects];
+    [_compilerOptionsForFilePath removeAllObjects];
   }
+
 
   //------------------------------------------------------------------------------------------------
   - (NSArray*) compilerOptionsForDocument: (id) document {
   //------------------------------------------------------------------------------------------------
-    NSArray* options = [_compilerOptionsForDocuments objectForKey: document];
+   id fileReference = [[document knownFileReferences][0] reference];
+   return [self compilerOptionsForFileReference: fileReference];
+  }
+
+  //------------------------------------------------------------------------------------------------
+  - (NSArray*) compilerOptionsForFileReference: (id) fileReference {
+  //------------------------------------------------------------------------------------------------
+    NSString* filePath = [fileReference resolvedAbsolutePath];
+    NSArray* options = [_compilerOptionsForFilePath objectForKey: filePath];
 
     if (options == nil) {
-      id fileReference = [[document knownFileReferences][0] reference];
-
       NSArray* openProjects = [Project openProjects];
       id project = nil;
       id target = nil;
@@ -122,13 +129,13 @@
         NSDictionary* projectSettings = [self activeBuildSettingsForContainer: project];
         NSDictionary* targetSettings  = [self activeBuildSettingsForContainer: target];
         if (projectSettings && targetSettings) {
-          options = [self relevantCompilerOptionsForFile: [fileReference resolvedAbsolutePath]
+          options = [self relevantCompilerOptionsForFile: filePath
                                            settingsArray: @[projectSettings, targetSettings]];
         }
       }
 
       if (options) {
-        [_compilerOptionsForDocuments setObject: options forKey: document];
+        [_compilerOptionsForFilePath setObject: options forKey: filePath];
       }
     }
 

@@ -56,6 +56,16 @@
   // DVTFileDataType
   + (id)fileDataTypeForFileURL:(id)arg1 error:(id *)arg2;
 
+  - (id)initWithSettings:(id)arg1 database:(id)arg2;
+
+  + (BOOL)languageSupportsSymbolColoring:(id)arg1;
+
+  - (id)initWithPath:(id)arg1;
+
+
+  + (id) openProjects;
+  - (id) targetsForFileReference: (id) fileReference justNative: (BOOL) native;
+
 @end
 
 //==================================================================================================
@@ -70,6 +80,7 @@
   static Class SourceCodeSymbolKind = nil;
   static Class TextDocumentLocation = nil;
   static Class FileDataType = nil;
+  static Class FileReference = nil;
 
 
   //------------------------------------------------------------------------------------------------
@@ -79,12 +90,27 @@
     SourceCodeSymbolKind = NSClassFromString(@"DVTSourceCodeSymbolKind");
     TextDocumentLocation = NSClassFromString(@"DVTTextDocumentLocation");
     FileDataType = NSClassFromString(@"DVTFileDataType");
+    FileReference = NSClassFromString(@"PBXFileReference");
 
     AXAMethodSwizzle(NSClassFromString(@"IDEIndex"),
                      @selector(symbolsMatchingName:inContext:withCurrentFileContentDictionary:),
                      NSObject.class,
                      @selector(DVTSwizzle_symbolsMatchingName:inContext:withCurrentFileContentDictionary:));
+
+//    AXAClassMethodSwizzle(NSClassFromString(@"IDEIndex"),
+//                     @selector(languageSupportsSymbolColoring:),
+//                     NSObject.class,
+//                     @selector(DVTSwizzle_languageSupportsSymbolColoring:));
   }
+
+//
+//  + (BOOL)DVTSwizzle_languageSupportsSymbolColoring:(id)arg1 {
+//      BOOL value = [self DVTSwizzle_languageSupportsSymbolColoring:arg1];
+////      NSLog(@"##### languageSupportsSymbolColoring %@ (%d)", arg1, value);
+//      return YES;
+//  }
+//
+//
 
   //------------------------------------------------------------------------------------------------
   - (id) DVTSwizzle_symbolsMatchingName: (NSString*) symbolName
@@ -102,6 +128,11 @@
       AXACustomLanguageSupportPlugin* sharedPlugin = [AXACustomLanguageSupportPlugin sharedPlugin];
       AXACustomLanguageSupport* customLanguage = [sharedPlugin languageForFileDataType: fileDataType];
 
+      id fileReference = [[FileReference alloc] initWithPath:[fileURL path]];
+
+      NSArray* compilerOptions =
+          [sharedPlugin.projectSettings compilerOptionsForFileReference: fileReference];
+
       NSDictionary* definition =
           [customLanguage.codeCompleter definitionOfSymbolAtLine: [context startingLineNumber]
                                                           column: [context startingColumnNumber]
@@ -113,7 +144,7 @@
                                   resolution: nil
                             forQueryProvider: nil];
 
-      NSURL* url = [NSURL fileURLWithPath:@"/Volumes/HFS/Projects/HelloWorld/HelloWorld/HelloWorld.eero"];
+      NSURL* url = [NSURL fileURLWithPath: definition[@"path"]];
 
       id location = [[TextDocumentLocation alloc] initWithDocumentURL: url
                                                             timestamp: nil
