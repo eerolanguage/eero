@@ -586,7 +586,6 @@
       NSString* const filename = options[0];
       CXTranslationUnit translationUnit = [self translationUnitForFileName: filename
                                                                    options: options];
-
       CXFile symbolFile = clang_getFile(translationUnit, [filename UTF8String]);
 
       if (symbolFile) {
@@ -611,9 +610,11 @@
 
           if (definitionFile) {
             CXString definitionFileName = clang_getFileName(definitionFile);
-            definition = @{ @"path"   : @(clang_getCString(definitionFileName)),
-                            @"line"   : @(definitionLine - 1),
-                            @"column" : @(definitionColumn - 1) };
+            definition = @{
+                AXACodeCompleterDefinitionPathKey   : @(clang_getCString(definitionFileName)),
+                AXACodeCompleterDefinitionLineKey   : @(definitionLine - 1),
+                AXACodeCompleterDefinitionColumnKey : @(definitionColumn - 1)
+            };
           }
         }
       }

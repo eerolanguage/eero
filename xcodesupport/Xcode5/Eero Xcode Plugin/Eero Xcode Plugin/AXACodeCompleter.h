@@ -45,7 +45,7 @@
 
   @optional
 
-  // Note: Convention for this method is lines and columns start at 0
+  // Note: Convention for these methods is lines and columns start at 0
   //
   - (BOOL) addCodeCompleteItemsToArray: (NSMutableArray*) items
                    usingSourceCodeText: (NSString*) text
@@ -64,4 +64,12 @@
 
 @interface AXACodeCompleter : NSObject <AXACodeCompleter>
 @end
+
+
+// String constants used for symbol definition lookup results
+//
+extern const NSString* const AXACodeCompleterDefinitionPathKey;
+extern const NSString* const AXACodeCompleterDefinitionLineKey;
+extern const NSString* const AXACodeCompleterDefinitionColumnKey;
+
 

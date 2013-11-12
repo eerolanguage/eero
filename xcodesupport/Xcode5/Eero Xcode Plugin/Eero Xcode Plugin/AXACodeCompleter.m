@@ -35,6 +35,12 @@
 #import "AXACodeCompleter.h"
 #import "AXACodeCompleter_Protected.h"
 
+// String constants used for symbol definition lookup results
+//
+const NSString* const AXACodeCompleterDefinitionPathKey   = @"path";
+const NSString* const AXACodeCompleterDefinitionLineKey   = @"line";
+const NSString* const AXACodeCompleterDefinitionColumnKey = @"column";
+
 @protocol AXACodeCompleter_PrivateXcodeMethods
   // DVTSourceCodeSymbolKind
   + (id)sourceCodeSymbolKinds;

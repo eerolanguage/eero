@@ -58,9 +58,6 @@
 
   // PBXFileReference
   - (id)initWithPath:(id)arg1;
-
-//  + (BOOL)languageSupportsSymbolColoring:(id)arg1;
-
 @end
 
 //==================================================================================================
@@ -77,7 +74,6 @@
   static Class FileDataType = nil;
   static Class FileReference = nil;
 
-
   //------------------------------------------------------------------------------------------------
   + (void)load {
   //------------------------------------------------------------------------------------------------
@@ -91,21 +87,7 @@
                      @selector(symbolsMatchingName:inContext:withCurrentFileContentDictionary:),
                      NSObject.class,
                      @selector(DVTSwizzle_symbolsMatchingName:inContext:withCurrentFileContentDictionary:));
-
-//    AXAClassMethodSwizzle(NSClassFromString(@"IDEIndex"),
-//                     @selector(languageSupportsSymbolColoring:),
-//                     NSObject.class,
-//                     @selector(DVTSwizzle_languageSupportsSymbolColoring:));
   }
-
-//
-//  + (BOOL)DVTSwizzle_languageSupportsSymbolColoring:(id)arg1 {
-//      BOOL value = [self DVTSwizzle_languageSupportsSymbolColoring:arg1];
-////      NSLog(@"##### languageSupportsSymbolColoring %@ (%d)", arg1, value);
-//      return YES;
-//  }
-//
-//
 
   //------------------------------------------------------------------------------------------------
   - (id) DVTSwizzle_symbolsMatchingName: (NSString*) symbolName
@@ -134,9 +116,12 @@
                                                             column: [context startingColumnNumber]
                                                    compilerOptions: compilerOptions];
         if (definition) {
-          NSURL* definitionFileURL = [NSURL fileURLWithPath: definition[@"path"]];
-          NSUInteger line = [definition[@"line"] unsignedIntegerValue];
-          NSUInteger column = [definition[@"column"] unsignedIntegerValue];
+          NSURL* definitionFileURL =
+              [NSURL fileURLWithPath: definition[AXACodeCompleterDefinitionPathKey]];
+          NSUInteger line =
+            [definition[AXACodeCompleterDefinitionLineKey] unsignedIntegerValue];
+          NSUInteger column =
+            [definition[AXACodeCompleterDefinitionColumnKey] unsignedIntegerValue];
 
           id location = [[TextDocumentLocation alloc] initWithDocumentURL: definitionFileURL
                                                                 timestamp: nil
