@@ -81,10 +81,25 @@
 
   //------------------------------------------------------------------------------------------------
   - (CXTranslationUnit) translationUnitForFileName: (NSString*) filename
-                                       unsavedFile: (struct CXUnsavedFile*) unsavedFile
-                                              args: (const char*[]) args
-                                         argsCount: (int) numOfArgs {
+                                           options: (NSArray*) options {
   //------------------------------------------------------------------------------------------------
+    return [self translationUnitForFileName: filename
+                                unsavedFile: NULL
+                                    options: options];
+  }
+
+  //------------------------------------------------------------------------------------------------
+  - (CXTranslationUnit) translationUnitForFileName: (NSString*) filename
+                                       unsavedFile: (struct CXUnsavedFile*) unsavedFile
+                                           options: (NSArray*) options {
+  //------------------------------------------------------------------------------------------------
+    // Convert options to clang compiler arguments
+    const int numOfArgs = (int)(options.count);
+    const char* args[numOfArgs];
+    for (NSUInteger i = 0; i < numOfArgs; i++) {
+      args[i] = [options[i] UTF8String];
+    }
+
     CXTranslationUnit translationUnit;
     AXATranslationUnitWrapper* translationUnitWrapper = _translationUnits[filename];
     if (translationUnitWrapper == nil) {
@@ -122,32 +137,21 @@
     const NSUInteger initialItemsCount = items.count;
 
     if (options.count > 0) { // Note: options[0] is always the input filename
-      NSString* filenameString = options[0];
-
-      // Convert options to clang compiler arguments
-      const int numOfArgs = (int)(options.count);
-      const char* args[numOfArgs];
-      for (NSUInteger i = 0; i < numOfArgs; i++) {
-        args[i] = [options[i] UTF8String];
-      }
-      const char* const filename = args[0];
-
-      const unsigned numOfUnsavedFiles = 1;
+      NSString* const filename = options[0];
       struct CXUnsavedFile unsavedFile = {
-          .Filename = filename,
+          .Filename = [filename UTF8String],
           .Contents = [text UTF8String],
           .Length   = [text length] + 1 // include terminating null char
       };
 
-      CXTranslationUnit translationUnit = [self translationUnitForFileName: filenameString
+      CXTranslationUnit translationUnit = [self translationUnitForFileName: filename
                                                                unsavedFile: &unsavedFile
-                                                                      args: args
-                                                                 argsCount: numOfArgs];
+                                                                   options: options];
       CXCodeCompleteResults* results =
           clang_codeCompleteAt(translationUnit,
-                               filename,
+                               [filename UTF8String],
                                (unsigned)line + 1, (unsigned)column + 1,
-                               &unsavedFile, numOfUnsavedFiles,
+                               &unsavedFile, 1,
                                CXCodeComplete_IncludeMacros | CXCodeComplete_IncludeCodePatterns);
       if (results) {
         [self processAnyErrorsForResults: results];
@@ -576,7 +580,45 @@
                                       column: (NSUInteger) column
                              compilerOptions: (NSArray*) options {
   //------------------------------------------------------------------------------------------------
-    return nil;
+    NSDictionary* definition = nil;
+
+    if (options.count > 0) { // Note: options[0] is always the input filename
+      NSString* const filename = options[0];
+      CXTranslationUnit translationUnit = [self translationUnitForFileName: filename
+                                                                   options: options];
+
+      CXFile symbolFile = clang_getFile(translationUnit, [filename UTF8String]);
+
+      if (symbolFile) {
+        CXSourceLocation symbolLocation = clang_getLocation(translationUnit,
+                                                            symbolFile,
+                                                            (unsigned int)(line + 1),
+                                                            (unsigned int)(column + 1));
+
+        CXCursor symbolCursor = clang_getCursor(translationUnit, symbolLocation);
+
+        CXCursor definitionCursor = clang_getCursorReferenced(symbolCursor);
+
+        if (!clang_isInvalid(clang_getCursorKind(definitionCursor))) {
+          CXSourceLocation definitionLocation = clang_getCursorLocation(definitionCursor);
+
+          CXFile definitionFile = NULL;
+          unsigned int definitionLine, definitionColumn, definitionOffset;
+
+          clang_getFileLocation(definitionLocation,
+                                &definitionFile,
+                                &definitionLine, &definitionColumn, &definitionOffset);
+
+          if (definitionFile) {
+            CXString definitionFileName = clang_getFileName(definitionFile);
+            definition = @{ @"path"   : @(clang_getCString(definitionFileName)),
+                            @"line"   : @(definitionLine - 1),
+                            @"column" : @(definitionColumn - 1) };
+          }
+        }
+      }
+    }
+    return definition;
   }
 
 

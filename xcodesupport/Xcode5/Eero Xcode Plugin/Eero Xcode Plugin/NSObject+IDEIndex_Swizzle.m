@@ -56,15 +56,10 @@
   // DVTFileDataType
   + (id)fileDataTypeForFileURL:(id)arg1 error:(id *)arg2;
 
-  - (id)initWithSettings:(id)arg1 database:(id)arg2;
-
-  + (BOOL)languageSupportsSymbolColoring:(id)arg1;
-
+  // PBXFileReference
   - (id)initWithPath:(id)arg1;
 
-
-  + (id) openProjects;
-  - (id) targetsForFileReference: (id) fileReference justNative: (BOOL) native;
+//  + (BOOL)languageSupportsSymbolColoring:(id)arg1;
 
 @end
 
@@ -123,42 +118,47 @@
       NSURL* fileURL = [context documentURL];
 
       NSError* error = nil;
-      id fileDataType = [FileDataType fileDataTypeForFileURL:fileURL error:&error];
+      id fileDataType = [FileDataType fileDataTypeForFileURL:fileURL error: &error];
 
       AXACustomLanguageSupportPlugin* sharedPlugin = [AXACustomLanguageSupportPlugin sharedPlugin];
       AXACustomLanguageSupport* customLanguage = [sharedPlugin languageForFileDataType: fileDataType];
 
-      id fileReference = [[FileReference alloc] initWithPath:[fileURL path]];
+      if (customLanguage) {
+        id fileReference = [[FileReference alloc] initWithPath:[fileURL path]];
 
-      NSArray* compilerOptions =
-          [sharedPlugin.projectSettings compilerOptionsForFileReference: fileReference];
+        NSArray* compilerOptions =
+            [sharedPlugin.projectSettings compilerOptionsForFileReference: fileReference];
 
-      NSDictionary* definition =
-          [customLanguage.codeCompleter definitionOfSymbolAtLine: [context startingLineNumber]
-                                                          column: [context startingColumnNumber]
-                                                 compilerOptions: compilerOptions];
+        NSDictionary* definition =
+            [customLanguage.codeCompleter definitionOfSymbolAtLine: [context startingLineNumber]
+                                                            column: [context startingColumnNumber]
+                                                   compilerOptions: compilerOptions];
+        if (definition) {
+          NSURL* definitionFileURL = [NSURL fileURLWithPath: definition[@"path"]];
+          NSUInteger line = [definition[@"line"] unsignedIntegerValue];
+          NSUInteger column = [definition[@"column"] unsignedIntegerValue];
 
-      id item = [IndexSymbol newSymbolOfKind: [SourceCodeSymbolKind globalVariableSymbolKind]
-                                    language: @""
-                                        name: symbolName
-                                  resolution: nil
-                            forQueryProvider: nil];
+          id location = [[TextDocumentLocation alloc] initWithDocumentURL: definitionFileURL
+                                                                timestamp: nil
+                                                     startingColumnNumber: column
+                                                       endingColumnNumber: column
+                                                       startingLineNumber: line
+                                                         endingLineNumber: line
+                                                           characterRange: NSMakeRange(0,0)];
 
-      NSURL* url = [NSURL fileURLWithPath: definition[@"path"]];
-
-      id location = [[TextDocumentLocation alloc] initWithDocumentURL: url
-                                                            timestamp: nil
-                                                 startingColumnNumber: 1
-                                                   endingColumnNumber: 1
-                                                   startingLineNumber: 5
-                                                     endingLineNumber: 5
-                                                       characterRange: NSMakeRange(0,0)];
-
-      [item setModelOccurrenceRole: 1 location: location];
-
-      return @[item];
-
-    } else {
+          id item = [IndexSymbol newSymbolOfKind: [SourceCodeSymbolKind globalVariableSymbolKind]
+                                        language: @""
+                                            name: symbolName
+                                      resolution: nil
+                                forQueryProvider: nil];
+          [item setModelOccurrenceRole: 1 location: location];
+          if (item) {
+            return @[item];
+          }
+        }
+      }
+    }
+    if (items == nil) {
       items = [self DVTSwizzle_symbolsMatchingName: symbolName
                                          inContext: context
                   withCurrentFileContentDictionary: content];
