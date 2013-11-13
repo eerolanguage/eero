@@ -153,12 +153,18 @@
   //------------------------------------------------------------------------------------------------
     for (unsigned i = 0; i < clang_codeCompleteGetNumDiagnostics(results); i++) {
       CXDiagnostic diag = clang_codeCompleteGetDiagnostic(results, i);
-      CXString diagString = clang_formatDiagnostic(diag,
-                                                   CXDiagnostic_DisplaySourceLocation |
-                                                   CXDiagnostic_DisplayColumn |
-                                                   CXDiagnostic_DisplaySourceRanges);
-      NSLog(@"%@: %s", [self className], clang_getCString(diagString));
-      clang_disposeString(diagString);
+      // Only show important messages in the log. Note that this happens to avoid an issue
+      // that clang_formatDiagnostic() has with locations in some system headers (resulting
+      // in crashes). Need to investigate further, especially if live issues is supported.
+      enum CXDiagnosticSeverity severity = clang_getDiagnosticSeverity(diag);
+      if (severity == CXDiagnostic_Error || severity == CXDiagnostic_Fatal) {
+        CXString diagString = clang_formatDiagnostic(diag,
+                                                     CXDiagnostic_DisplaySourceLocation |
+                                                     CXDiagnostic_DisplayColumn |
+                                                     CXDiagnostic_DisplaySourceRanges);
+        NSLog(@"%@: %s", [self className], clang_getCString(diagString));
+        clang_disposeString(diagString);
+      }
       clang_disposeDiagnostic(diag);
     }
   }
