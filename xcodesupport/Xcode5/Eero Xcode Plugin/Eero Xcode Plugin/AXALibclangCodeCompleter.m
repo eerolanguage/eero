@@ -110,6 +110,7 @@
                                                     unsavedFile, numOfUnsavedFiles,
                                                     CXTranslationUnit_Incomplete |
                                                     CXTranslationUnit_PrecompiledPreamble |
+                                                    CXTranslationUnit_DetailedPreprocessingRecord |
                                                     CXTranslationUnit_CacheCompletionResults);
       if (translationUnit) {
         // This extra reparse is apparently needed for the auto-creation of the PCH files,
