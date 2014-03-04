@@ -65,6 +65,8 @@
     if (self = [super init]) {
 
       _pluginBundle = bundle;
+        
+      [self addCustomLanguages];
 
       [NSNotificationCenter.defaultCenter addObserver: self
                                               selector: @selector( applicationDidFinishLaunching: )
@@ -140,8 +142,6 @@
                            selector: @selector( projectDidChange: )
                                name: @"PBXProjectDidChangeNotification"
                              object: nil];
-
-    [self addCustomLanguages];
   }
 
   //------------------------------------------------------------------------------------------------
