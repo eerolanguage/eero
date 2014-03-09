@@ -1,7 +1,7 @@
 <a href="http://eerolanguage.org">The Eero Programming Language</a>
 -----------------------------
 
-This repository contains code example and tool support files.
+This repository contains only code examples and tool support files.
 
-Current work on the 3.x release (trunk) can be found under this organization at <a href="https://github.com/eerolanguage/clang-trunk">eerolanguage/eero-trunk<a/>.
+Clang compiler work based on the 3.4 release as well as trunk can be found in this organization at <a href="https://github.com/eerolanguage/clang">eerolanguage/clang<a/>.
   
