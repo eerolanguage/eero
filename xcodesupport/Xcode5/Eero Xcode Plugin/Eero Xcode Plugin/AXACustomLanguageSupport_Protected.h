@@ -33,8 +33,8 @@
 #import "AXACustomLanguageSupport.h"
 
 @interface AXACustomLanguageSupport ()
-  @property (readonly) NSString* languageName;
-  @property (readonly) NSString* languageIdentifier;
-  @property (readonly) NSString* sourceFileIdentifier;
-  @property (readonly) NSString* languageSpecificationIdentifier;
+  @property (nonatomic, readonly) NSString* languageName;
+  @property (nonatomic, readonly) NSString* languageIdentifier;
+  @property (nonatomic, readonly) NSString* sourceFileIdentifier;
+  @property (nonatomic, readonly) NSString* languageSpecificationIdentifier;
 @end

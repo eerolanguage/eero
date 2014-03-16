@@ -39,7 +39,7 @@
   - (id)symbolsMatchingName:(id)arg1 inContext:(id)arg2 withCurrentFileContentDictionary:(id)arg3;
 
   // DVTTextDocumentLocation
-  - (id)initWithDocumentURL:(id)arg1 timestamp:(id)arg2 startingColumnNumber:(long long)arg3 endingColumnNumber:(long long)arg4 startingLineNumber:(long long)arg5 endingLineNumber:(long long)arg6 characterRange:(struct _NSRange)arg7;
+  - (id)initWithDocumentURL:(id)arg1 timestamp:(id)arg2 startingColumnNumber:(NSInteger)arg3 endingColumnNumber:(NSInteger)arg4 startingLineNumber:(NSInteger)arg5 endingLineNumber:(NSInteger)arg6 characterRange:(NSRange)arg7;
   - (NSUInteger) startingLineNumber;
   - (NSUInteger) startingColumnNumber;
 
@@ -56,8 +56,6 @@
   // DVTFileDataType
   + (id)fileDataTypeForFileURL:(id)arg1 error:(id *)arg2;
 
-  // PBXFileReference
-  - (id)initWithPath:(id)arg1;
 @end
 
 //==================================================================================================
@@ -118,10 +116,10 @@
         if (definition) {
           NSURL* definitionFileURL =
               [NSURL fileURLWithPath: definition[AXACodeCompleterDefinitionPathKey]];
-          NSUInteger line =
-            [definition[AXACodeCompleterDefinitionLineKey] unsignedIntegerValue];
-          NSUInteger column =
-            [definition[AXACodeCompleterDefinitionColumnKey] unsignedIntegerValue];
+          NSInteger line =
+            [definition[AXACodeCompleterDefinitionLineKey] integerValue];
+          NSInteger column =
+            [definition[AXACodeCompleterDefinitionColumnKey] integerValue];
 
           id location = [[TextDocumentLocation alloc] initWithDocumentURL: definitionFileURL
                                                                 timestamp: nil

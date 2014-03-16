@@ -37,12 +37,12 @@
   - (BOOL)conformsToLanguage: (id)language;
   - (BOOL)supportsIndentation;
 
-  @property (retain) Class      nativeSourceModelParserClass;
-  @property (retain) NSString*  documentationAbbreviation;
-  @property (retain) NSString*  languageName;
-  @property (retain) NSString*  identifier;
-  @property (retain) NSArray*   conformedToLanguages;
-  @property (retain) NSArray*   fileDataTypes;
-  @property (retain) id         languageSpecification;
+  @property (nonatomic, retain)  Class      nativeSourceModelParserClass;
+  @property (nonatomic, copy)    NSString*  documentationAbbreviation;
+  @property (nonatomic, copy)    NSString*  languageName;
+  @property (nonatomic, copy)    NSString*  identifier;
+  @property (nonatomic, retain)  NSArray*   conformedToLanguages;
+  @property (nonatomic, retain)  NSArray*   fileDataTypes;
+  @property (nonatomic, retain)  id         languageSpecification;
 
 @end

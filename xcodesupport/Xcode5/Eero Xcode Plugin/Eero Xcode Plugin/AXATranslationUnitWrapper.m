@@ -43,7 +43,7 @@
   //------------------------------------------------------------------------------------------------
   - (instancetype) initWithTranslationUnit: (CXTranslationUnit) translationUnit {
   //------------------------------------------------------------------------------------------------
-    if (self = [super init]) {
+    if ((self = [super init])) {
       _translationUnit = translationUnit;
     }
     return self;

@@ -37,10 +37,10 @@
 
   - (instancetype) initWithBundle: (NSBundle*) bundle;
 
-  @property (readonly) id fileDataType;
-  @property (readonly) id sourceCodeLanguage;
-  @property (readonly) AXACodeCompleter* codeCompleter;
-  @property (readonly) NSString* executablePath;
+  @property (nonatomic, readonly) id fileDataType;
+  @property (nonatomic, readonly) id sourceCodeLanguage;
+  @property (nonatomic, readonly) AXACodeCompleter* codeCompleter;
+  @property (nonatomic, readonly) NSString* executablePath;
 
 @end
 

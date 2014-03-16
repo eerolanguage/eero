@@ -48,7 +48,7 @@
   //------------------------------------------------------------------------------------------------
   - (id) init {
   //------------------------------------------------------------------------------------------------
-    if (self = [super init]) {
+    if ((self = [super init])) {
       _translationUnits = [NSMutableDictionary new];
 
       NSLog(@"%@: clang version: %s", [self className], clang_getCString(clang_getClangVersion()));
@@ -94,8 +94,8 @@
                                            options: (NSArray*) options {
   //------------------------------------------------------------------------------------------------
     // Convert options to clang compiler arguments
-    const int numOfArgs = (int)(options.count);
-    const char* args[numOfArgs];
+    const NSUInteger numOfArgs = options.count;
+    const char** args = malloc(sizeof(const char*) * numOfArgs);
     for (NSUInteger i = 0; i < numOfArgs; i++) {
       args[i] = [options[i] UTF8String];
     }
@@ -106,7 +106,7 @@
       const unsigned numOfUnsavedFiles = unsavedFile ? 1 : 0;
       translationUnit = clang_parseTranslationUnit(_index,
                                                     NULL,
-                                                    args, numOfArgs,
+                                                    args, (int)numOfArgs,
                                                     unsavedFile, numOfUnsavedFiles,
                                                     CXTranslationUnit_Incomplete |
                                                     CXTranslationUnit_PrecompiledPreamble |
@@ -124,6 +124,8 @@
     } else {
       translationUnit = [translationUnitWrapper translationUnit];
     }
+
+    free(args);
 
     return translationUnit;
   }
@@ -200,7 +202,7 @@
       NSMutableString* insertionText  = [NSMutableString new];
       NSString*        resultTypeText = nil;
 
-      const int resultPriority = clang_getCompletionPriority(completion);
+      const unsigned resultPriority = clang_getCompletionPriority(completion);
       const BOOL resultDisabled = (clang_getCompletionAvailability(completion) !=
                                    CXAvailability_Available);
       BOOL started = NO;

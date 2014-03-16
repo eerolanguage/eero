@@ -78,7 +78,7 @@
   // custom language), try to use the language's normal compiler instead.
   //--------------------------------------------------------------------------------------------------
   - (NSString*) XCSwizzle_executablePathWithMacroExpansionScope: (id) scope
-                                             forLanguageDialect: (id) dialect {
+                                             forLanguageDialect: (NSString*) dialect {
   //--------------------------------------------------------------------------------------------------
     NSString* path = nil;
 
@@ -93,7 +93,7 @@
         for (id fileType in [FileType registeredSpecifications]) {
           if ([fileType isSourceCode]) {
             NSString* fileTypeDialect = [fileType stringForKey: @"GccDialectName"];
-            if (fileTypeDialect && [fileTypeDialect isEqual: dialect]) {
+            if (fileTypeDialect && [fileTypeDialect isEqualToString: dialect]) {
               NSString* UTI = [fileType stringForKey: @"UTI"];
               AXACustomLanguageSupport* customLanguage =
                   [AXACustomLanguageSupportPlugin.sharedPlugin languageForFileTypeUTI: UTI];

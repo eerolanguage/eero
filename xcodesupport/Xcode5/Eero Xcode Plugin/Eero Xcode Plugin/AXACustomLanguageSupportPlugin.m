@@ -62,7 +62,7 @@
   //------------------------------------------------------------------------------------------------
   - (id) initWithBundle: (NSBundle*) bundle {
   //------------------------------------------------------------------------------------------------
-    if (self = [super init]) {
+    if ((self = [super init])) {
 
       _pluginBundle = bundle;
         
@@ -97,7 +97,7 @@
   - (AXACustomLanguageSupport*) languageForFileTypeUTI: (NSString*) UTI {
   //------------------------------------------------------------------------------------------------
     for (AXACustomLanguageSupport* language in _customLanguages) {
-      if ([UTI isEqual: [language.fileDataType identifier]]) {
+      if ([UTI isEqualToString: [language.fileDataType identifier]]) {
         return language;
       }
     }
@@ -124,7 +124,7 @@
   }
 
   //------------------------------------------------------------------------------------------------
-  - (void) applicationDidFinishLaunching: (NSNotification*) notification {
+  - (void) applicationDidFinishLaunching: (NSNotification*) __unused notification {
   //------------------------------------------------------------------------------------------------
     NSNotificationCenter* notificationCenter = [NSNotificationCenter defaultCenter];
 
@@ -145,7 +145,7 @@
   }
 
   //------------------------------------------------------------------------------------------------
-  - (void) projectDidOpen: (NSNotification*) notification {
+  - (void) projectDidOpen: (NSNotification*) __unused notification {
   //------------------------------------------------------------------------------------------------
     if (_projectSettings == nil) {
       _projectSettings = [AXAProjectSettingsRetriever new];
@@ -153,14 +153,14 @@
   }
 
   //------------------------------------------------------------------------------------------------
-  - (void) projectDidClose: (NSNotification*) notification {
+  - (void) projectDidClose: (NSNotification*) __unused notification {
   //------------------------------------------------------------------------------------------------
     // TODO: Being very conservative here -- consider passing in project or breaking out methods
     [self.projectSettings clearCaches];
   }
 
   //------------------------------------------------------------------------------------------------
-  - (void) projectDidChange: (NSNotification*) notification {
+  - (void) projectDidChange: (NSNotification*) __unused notification {
   //------------------------------------------------------------------------------------------------
     // TODO: Being very conservative here -- consider passing in project or breaking out methods
     [self.projectSettings clearCaches];

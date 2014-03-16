@@ -42,6 +42,6 @@
   - (AXACustomLanguageSupport*) languageForFileTypeUTI: (NSString*) UTI;
   - (AXACustomLanguageSupport*) languageForSourceCodeLanguage: (id) sourceCodeLanguage;
 
-  @property (readonly) AXAProjectSettingsRetriever* projectSettings;
+  @property (nonatomic, readonly) AXAProjectSettingsRetriever* projectSettings;
 
 @end

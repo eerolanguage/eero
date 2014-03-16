@@ -34,6 +34,6 @@
 
 @interface AXACodeCompleter ()
 
-  @property (readonly) NSString* placeholderFormatter;
+  @property (nonatomic, readonly) NSString* placeholderFormatter;
 
 @end

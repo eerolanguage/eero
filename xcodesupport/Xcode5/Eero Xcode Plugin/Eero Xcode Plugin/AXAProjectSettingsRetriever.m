@@ -78,7 +78,7 @@
   //------------------------------------------------------------------------------------------------
   - (id) init {
   //------------------------------------------------------------------------------------------------
-    if (self = [super init]) {
+    if ((self = [super init])) {
       Project = NSClassFromString(@"PBXProject");
       _compilerOptionsForFilePath = [NSMutableDictionary new];
     }
@@ -150,7 +150,7 @@
     if (buildConfigurationList) {
       id activeConfiguration = nil;
       NSArray* configurations = [buildConfigurationList buildConfigurations];
-      for (int i = 0; i < [configurations count]; i++) {
+      for (NSUInteger i = 0; i < configurations.count; i++) {
         id configuration = configurations[i];
         NSString* name = [configuration inspectorDisplayName];
         if ([name rangeOfString:@"(Active)"].location != NSNotFound) {
@@ -230,15 +230,15 @@
       }
     }
 
-    if ([modules isEqual: @"YES"]) {
+    if ([modules isEqualToString: @"YES"]) {
       [options addObject: @"-fmodules"];
     }
 
-    if ([arc isEqual: @"YES"]) {
+    if ([arc isEqualToString: @"YES"]) {
       [options addObject: @"-fobjc-arc"];
     }
 
-    if ([objcExceptions isEqual: @"YES"]) {
+    if ([objcExceptions isEqualToString: @"YES"]) {
       [options addObject: @"-fobjc-exceptions"];
     }
 

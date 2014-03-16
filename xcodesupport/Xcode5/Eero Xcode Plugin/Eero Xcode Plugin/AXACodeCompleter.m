@@ -58,7 +58,7 @@ const NSString* const AXACodeCompleterDefinitionColumnKey = @"column";
   //------------------------------------------------------------------------------------------------
   - (id) init {
   //------------------------------------------------------------------------------------------------
-    if (self = [super init]) {
+    if ((self = [super init])) {
       IndexCompletionItem = NSClassFromString(@"IDEIndexCompletionItem");
       SourceCodeSymbolKind = NSClassFromString(@"DVTSourceCodeSymbolKind");
     }

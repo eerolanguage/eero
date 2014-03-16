@@ -45,7 +45,7 @@
   //------------------------------------------------------------------------------------------------
   - (instancetype) initWithBundle: (NSBundle*) bundle {
   //------------------------------------------------------------------------------------------------
-    if (self = [super initWithBundle: bundle]) {
+    if ((self = [super initWithBundle: bundle])) {
 
       NSMutableArray* pathComponents = [NSMutableArray arrayWithObject: bundle.resourcePath];
 
@@ -125,7 +125,7 @@
   }
 
   //------------------------------------------------------------------------------------------------
-  - (void) projectDidOpen: (NSNotification*) notification {
+  - (void) projectDidOpen: (NSNotification*) __unused notification {
   //------------------------------------------------------------------------------------------------
     if (_codeCompleter == nil) {
       _codeCompleter = [AXALibclangCodeCompleter new];
@@ -133,14 +133,14 @@
   }
 
   //------------------------------------------------------------------------------------------------
-  - (void) projectDidClose: (NSNotification*) notification {
+  - (void) projectDidClose: (NSNotification*) __unused notification {
   //------------------------------------------------------------------------------------------------
     // TODO: Being very conservative here -- consider passing in project or breaking out methods
     [_codeCompleter clearCaches];
   }
 
   //------------------------------------------------------------------------------------------------
-  - (void) projectDidChange: (NSNotification*) notification {
+  - (void) projectDidChange: (NSNotification*) __unused notification {
   //------------------------------------------------------------------------------------------------
     // TODO: Being very conservative here -- consider passing in project or breaking out methods
     [_codeCompleter clearCaches];
